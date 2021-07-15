@@ -1,0 +1,50 @@
+
+  XSendFile On
+  XSendFilePath <%= @railsdir %>/current
+  XSendFilePath <%= @railsdir %>/shared/public/assets
+
+  RewriteEngine On
+
+  # Block certain bots
+  RewriteCond %{HTTP_USER_AGENT} ".*(ahrefsbot|bleriot|blexbot|ccbot|clcrawler|coccocbot|daum|dotbot|gigabot|ltx71|mail.ru_bot|mj12bot|mojeekbot|nimbostratus-bot|pinterestbot|qwantify|semrushbot|seznambot|sogou web spider|telegrambot|the knowledge ai|turnitinbot|tweetmemebot|uptimerobot|velenpublicwebcrawler|yeti|zoombot).*" [NC]
+  RewriteRule "(.*)" - [F,L]
+
+  # Redirect from www.bioportal
+  RewriteCond %{HTTP_HOST} ^www\.(.*)$ [NC]
+  RewriteRule ^(.*)$ http://%1/$1 [R=301,L]
+
+  # gzip html, css and js
+  AddOutputFilterByType DEFLATE text/html text/xml application/x-javascript application/javascript
+
+  ExpiresActive on
+  # far future expires headers
+  <FilesMatch "\.(ico|pdf|jpg|jpeg|png|gif)$">
+    ExpiresDefault "access plus 1 years"
+    SetOutputFilter Deflate
+  </FilesMatch>
+
+  <FilesMatch "\.(flv|js|swf|css)$">
+    ExpiresDefault "access plus 1 week"
+    SetOutputFilter Deflate
+  </FilesMatch>
+
+  # Check for maintenance file and redirect all requests
+  RewriteCond %{DOCUMENT_ROOT}/maintenance.html -f
+  RewriteCond %{SCRIPT_FILENAME} !maintenance.html
+  RewriteCond %{REQUEST_URI} !/maintenance.html$
+  RewriteRule ^.*$  http://<%= @domain %>/maintenance/index.html [L]
+
+  # http://guides.rubyonrails.org/asset_pipeline.html#in-production
+  <Location /assets/>
+    # Use of ETag is discouraged when Last-Modified is present
+    Header unset ETag
+    FileETag None
+    # RFC says only cache for 1 year
+    ExpiresActive On
+    ExpiresDefault "access plus 1 year"
+  </Location>
+
+  <Location /widgets/>
+    PassengerEnabled off
+  </Location>
+

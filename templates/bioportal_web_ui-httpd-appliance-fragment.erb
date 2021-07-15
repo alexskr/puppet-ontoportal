@@ -1,0 +1,38 @@
+  # BioMixer reverse proxy
+  ProxyPass /BioMixer http://localhost:8082/biomixer
+  ProxyPassReverse /BioMixer http://localhost:8082/biomixer
+
+  XSendFile On
+  XSendFilePath <%= @railsdir %>/current
+  XSendFilePath <%= @railsdir %>/shared/public/assets
+
+  # gzip html, css and js
+  AddOutputFilterByType DEFLATE text/html text/xml application/x-javascript application/javascript
+
+  ExpiresActive on
+  # far future expires headers
+  <FilesMatch "\.(ico|pdf|jpg|jpeg|png|gif)$">
+    ExpiresDefault "access plus 1 years"
+    SetOutputFilter Deflate
+  </FilesMatch>
+
+  <FilesMatch "\.(flv|js|swf|css)$">
+    ExpiresDefault "access plus 1 week"
+    SetOutputFilter Deflate
+  </FilesMatch>
+
+
+  #http://guides.rubyonrails.org/asset_pipeline.html#in-production
+  <Location /assets/>
+    # Use of ETag is discouraged when Last-Modified is present
+    Header unset ETag
+    FileETag None
+    # RFC says only cache for 1 year
+    ExpiresActive On
+    ExpiresDefault "access plus 1 year"
+  </Location>
+
+  <Location /widgets/>
+    PassengerEnabled off
+  </Location>
+

@@ -1,0 +1,29 @@
+<%- |
+  String $user,
+  String $group,
+  String $environment,
+  Stdlib::Absolutepath $app_root,
+  Stdlib::Absolutepath $bundle_bin,
+| -%>
+
+[Unit]
+Description=Unicorn server
+After=network.target
+
+[Service]
+ExecStart=<%= $bundle_bin %> exec unicorn -c config/unicorn.rb -E <%= $environment %>
+ExecStop=/usr/bin/kill -QUIT $MAINPID
+ExecReload=/usr/bin/kill -USR2 $MAINPID
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=unicorn
+User=<%= $user %>
+Group=<%= $group %>
+PIDFile=<%= $app_root %>/shared/tmp/pids/unicorn.pid
+PermissionsStartOnly=false
+TimeoutStopSec=62
+PrivateTmp=yes
+WorkingDirectory=<%= $app_root %>/current
+
+[Install]
+WantedBy=multi-user.target

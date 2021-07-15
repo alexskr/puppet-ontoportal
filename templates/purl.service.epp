@@ -1,0 +1,29 @@
+<%- |
+  String $user = 'purl',
+  String $group = 'purl',
+  String $app_name = 'purl',
+  Stdlib::Absolutepath $app_path = '/usr/local/PURLZ-Server-1.6.3'
+| -%>
+
+[Unit]
+Description=PURL service
+After=network.target
+
+[Service]
+User=purl
+ExecStart=<%= $app_path %>/bin/start.sh
+
+KillMode=process
+Restart=on-failure
+RestartSec=5
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=<%= $app_name %>
+
+User=<%= $user %>
+Group=<%= $group %>
+PrivateTmp=yes
+WorkingDirectory=<%= $app_path %>
+
+[Install]
+WantedBy=multi-user.target
