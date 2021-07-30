@@ -13,7 +13,7 @@
 #
 
 class ontoportal::bioportal_web_ui (
-  Enum[ 'staging', 'production', 'appliance', 'development'] $environment = 'staging',
+  Enum['staging', 'production', 'appliance', 'development'] $environment = 'staging',
   $ruby_version              = '2.6.7',
   String $owner              = 'ncbo-deployer',
   String $group              = 'ncbo',
@@ -22,7 +22,7 @@ class ontoportal::bioportal_web_ui (
   $logrotate_rails           = 14,
   $railsdir                  = '/srv/ontoportal/bioportal_web_ui',
   $domain                    = 'stage.bioontology.org',
-  $slices = [ 'www', 'bis', 'ctsa', 'biblio', 'psi', 'cabig', 'cgiar', 'umls', 'who-fic' ], #used as SAN for letsencrypt, obo_foundary is problematic since it has underscore; www is not a slice. This would not be nessesary with wildcard certs
+  $slices = ['www', 'bis', 'ctsa', 'biblio', 'psi', 'cabig', 'cgiar', 'umls', 'who-fic'], #used as SAN for letsencrypt, obo_foundary is problematic since it has underscore; www is not a slice. This would not be nessesary with wildcard certs
   $ssl_cert                  = "/etc/letsencrypt/live/${domain}/cert.pem",
   $ssl_key                   = "/etc/letsencrypt/live/${domain}/privkey.pem",
   $ssl_chain                 = "/etc/letsencrypt/live/${domain}/chain.pem",
@@ -30,14 +30,13 @@ class ontoportal::bioportal_web_ui (
   Boolean $manage_letsencrypt = false,
   Boolean $ssl_redirect      = false,
   Boolean $install_ruby      = true,
-  ){
-
+) {
   include ontoportal::firewall::http
 
   require epel
 
-  class { 'nodejs':}
-  -> class { 'yarn':}
+  class { 'nodejs': }
+  -> class { 'yarn': }
 
   class { 'apache':
     default_vhost    => false,
@@ -73,16 +72,15 @@ class ontoportal::bioportal_web_ui (
 
   if $enable_mod_status {
     class { 'apache::mod::status':
-      requires => [ 'ip 127.0.0.1 171.65.32.0/23 172.27.213.0/24 171.66.16.0/20 10.111.30.32 171.67.213.42' ]
+      requires => ['ip 127.0.0.1 171.65.32.0/23 172.27.213.0/24 171.66.16.0/20 10.111.30.32 171.67.213.42']
     }
   }
 
   # in place to mitigate https://tickets.puppetlabs.com/browse/MODULES-5612
-  file {[ '/etc/httpd/conf.modules.d/00-mpm.conf',
+  file { ['/etc/httpd/conf.modules.d/00-mpm.conf',
           '/etc/httpd/conf.modules.d/00-ssl.conf',
           '/etc/httpd/conf.modules.d/00-systemd.conf',
           '/etc/httpd/conf.modules.d/10-passenger.conf']:
-            ensure  => 'present',
             mode    => '0644',
             owner   => root,
             group   => root,
@@ -100,13 +98,13 @@ class ontoportal::bioportal_web_ui (
 
   ensure_packages ([
     'mariadb-devel',
-    # 'mod-spdy',
-    #'nodejs', #nodeJS is required for asset pipline compilation
+     #'mod-spdy',
+     #'nodejs', #nodeJS is required for asset pipline compilation
     'passenger-devel'  #required for compiling passenger_native_support.so for the current Ruby interpreter
   ])
   # redirect for maintenance
   $maintanence_rewrite = {
-    'rewrite_cond' => [ '%{DOCUMENT_ROOT}/system/maintenance.html -f',
+    'rewrite_cond' => ['%{DOCUMENT_ROOT}/system/maintenance.html -f',
       '%{SCRIPT_FILENAME} !/system/maintenance.html',
       '%{REQUEST_URI} !/system/maintenance.html$'],
     'rewrite_rule' => '^.*$  /system/maintenance.html [L]' }
@@ -123,9 +121,9 @@ class ontoportal::bioportal_web_ui (
     }
 
     if $ssl_redirect {
-      $_rewrites =  {
-        'rewrite_cond' => '%{REQUEST_URI} !(\.well-known/acme-challenge|/server-status) ',
-        'rewrite_rule' => '^/?(.*) https://%{SERVER_NAME}/$1 [R,L]'  }
+      $_rewrites = {
+        'rewrite_cond' => '%{REQUEST_URI} !(\.well-known/acme-challenge|/server-status)',
+        'rewrite_rule' => '^/?(.*) https://%{SERVER_NAME}/$1 [R,L]' },
       # $_redirect_source = undef
       # $_redirect_dest   = undef
     } else {
@@ -135,7 +133,7 @@ class ontoportal::bioportal_web_ui (
       # $_redirect_dest   = [ "https://${domain}/login", "https://${domain}/account"]
     }
     $alias_le = { alias => '/.well-known/acme-challenge/',
-                  path  => '/mnt/.letsencrypt/.well-known/acme-challenge/'}
+                  path  => '/mnt/.letsencrypt/.well-known/acme-challenge/' },
     $directories_le = {
       path              => '/mnt/.letsencrypt/.well-known/acme-challenge',
       require           => 'all granted',
@@ -214,9 +212,9 @@ class ontoportal::bioportal_web_ui (
       ensure => directory,
       owner  => $owner,
       group  => $group;
-    [ $railsdir ,"${railsdir}/shared","${railsdir}/releases", "${railsdir}/shared/system"]:
+    [$railsdir ,"${railsdir}/shared","${railsdir}/releases", "${railsdir}/shared/system"]:
       mode   => '0775';
-    [ "${railsdir}/shared/log"]:
+    ["${railsdir}/shared/log"]:
       ensure => 'link',
       target => '/var/log/rails',
       force  => yes;
@@ -245,5 +243,3 @@ class ontoportal::bioportal_web_ui (
     postrotate => '/sbin/service httpd reload > /dev/null 2>/dev/null || true',
   }
 }
-
-

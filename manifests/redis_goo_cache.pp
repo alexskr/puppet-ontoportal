@@ -1,15 +1,13 @@
 #this profile class is written for arioch/puppet-redis which is a bit quircky
 
-class ontoportal::redis_goo_cache(
+class ontoportal::redis_goo_cache (
   Optional[String] $maxmemory = undef,
   Stdlib::Port $port          = 6381,
   Boolean $manage_firewall    = true,
   Boolean $manage_newrelic    = true,
-  $fwsrc = lookup("ontologies_api_nodes_${facts['ncbo_environment']}", undef, undef, []) + lookup('ips.vpn', undef, undef, []),
-  ){
-
+  $fwsrc = undef,
+) {
   $redis_role = 'goo_cache'
-  #$redis_role = 'goo'
 
   require ontoportal::redis_base
 
@@ -24,7 +22,7 @@ class ontoportal::redis_goo_cache(
     }
   }
 
-  redis::instance  { $redis_role:
+  redis::instance { $redis_role:
     port             => $port,
     save_db_to_disk  => false,
     protected_mode   => false,

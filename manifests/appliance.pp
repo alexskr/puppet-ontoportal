@@ -1,8 +1,7 @@
 ########################################################################
 
-
-# this should be moved to role
-class ontoportal::appliance(
+# this is more of a role than a profile.
+class ontoportal::appliance (
   $owner = 'ontoportal',
   $group = 'ontoportal',
   $appliance_version = '3.0',
@@ -11,33 +10,31 @@ class ontoportal::appliance(
   $app_root_dir  = '/srv/ontoportal',
   $ui_domain_name = 'appliance.ontoportal.org',
   $api_domain_name = 'data.appliance.ontoportal.org',
-  ){
-    #  user { 'root':
-    #password           => '$1$nCrHx6ct$0O.NJ8EDhHh3NJSK1yMU./',
-    #}
+) {
   include nscd
 
-  kernel_parameter {'net.ifnames':
+  kernel_parameter { 'net.ifnames':
     value => '0',
   }
   require epel
   class { 'motd':
-    content => "OntoPortal Appliance v${appliance_version}\n"
+    content => "OntoPortal Appliance v${appliance_version}\n",
   }
 
   # need to disable root ssh for AWS ami
   class { 'ssh::server':
-    options   => {
+    options => {
       'HostKey'              => [
         '/etc/ssh/ssh_host_ed25519_key',
         '/etc/ssh/ssh_host_rsa_key',
-        '/etc/ssh/ssh_host_ecdsa_key'],
+        '/etc/ssh/ssh_host_ecdsa_key',
+      ],
 
       'PermitRootLogin'      => 'no',
       'PrintMotd'            => 'yes',
       'SyslogFacility'       => 'AUTHPRIV',
       'PermitEmptyPasswords' => 'no',
-    }
+    },
   }
   ##http://lonesysadmin.net/2013/12/06/use-elevator-noop-for-linux-virtual-machines/
   ##https://kb.vmware.com/s/article/2011861
@@ -69,40 +66,40 @@ class ontoportal::appliance(
 
   # odd depenency cyle workaround - rbenv installs git and git class gets included somewere
   class { 'git':
-    package_manage => false
+    package_manage => false,
   }
 
   # system utilities/libraries
   ensure_packages([
-    'git-lfs',
-    'bind-utils',
-    'bzip2',
-    'bash-completion',
-    'curl',
-    'lsof',
-    'ncdu',
-    'nano',
-    'htop',
-    'rsync',
-    'screen',
-    'sysstat',
-    'time',
-    'unzip',
-    'vim-enhanced',
-    'which',
-    'wget',
-    'zip',
-    'rdate',
-    'tree',
-    'tmux',
-    'yum-utils',
-    'telnet'
+      'git-lfs',
+      'bind-utils',
+      'bzip2',
+      'bash-completion',
+      'curl',
+      'lsof',
+      'ncdu',
+      'nano',
+      'htop',
+      'rsync',
+      'screen',
+      'sysstat',
+      'time',
+      'unzip',
+      'vim-enhanced',
+      'which',
+      'wget',
+      'zip',
+      'rdate',
+      'tree',
+      'tmux',
+      'yum-utils',
+      'telnet',
   ])
 
   ensure_packages([
-    'linux-firmware',
-  ],
-    { ensure =>  absent}
+      'linux-firmware',
+    ],
+    { ensure => absent },
   )
 
   include ontoportal::firewall
@@ -143,8 +140,8 @@ class ontoportal::appliance(
     ensure => present,
     gid    => '888',
   }
-  file_line {'ontoportal ruby gem path':
-    path =>  '/home/ontoportal/.bashrc',
+  file_line { 'ontoportal ruby gem path':
+    path => '/home/ontoportal/.bashrc',
     line => 'which ruby >/dev/null && which gem >/dev/null && PATH="$(ruby -r rubygems -e \'puts Gem.user_dir\')/bin:$PATH"',
   }
 
@@ -159,14 +156,15 @@ class ontoportal::appliance(
   }
   # Create Directories (including parent directories)
   file { [$app_root_dir,
-  #         "${app_root_dir}/.bundle",
-          $data_dir,
-          "${data_dir}/reports", "${data_dir}/mgrep",
-          "${data_dir}/mgrep/dictionary/"]:
-    ensure => directory,
-    owner  => $owner,
-    group  => $group,
-    mode   => '0775',
+      $data_dir,
+      #      "${app_root_dir}/.bundle",
+      "${data_dir}/reports", "${data_dir}/mgrep",
+      "${data_dir}/mgrep/dictionary/",
+    ]:
+      ensure => directory,
+      owner  => $owner,
+      group  => $group,
+      mode   => '0775',
   }
   class { 'ontoportal::rbenv':
     ruby_version => $ruby_version,
@@ -186,7 +184,7 @@ class ontoportal::appliance(
   # chaining api and UI,  sometimes passenger yum repo confuses nginx installation.
   Class['epel'] -> Class['ontoportal::ontologies_api'] -> Class['ontoportal::bioportal_web_ui']
 
-  class {'ontoportal::bioportal_web_ui':
+  class { 'ontoportal::bioportal_web_ui':
     environment       => 'appliance',
     ruby_version      => $ruby_version,
     owner             => $owner,
@@ -205,7 +203,7 @@ class ontoportal::appliance(
     install_ruby      => false,
     require           => Class['ontoportal::rbenv'],
   }
-  class {'ontoportal::ontologies_api':
+  class { 'ontoportal::ontologies_api':
     environment         => 'appliance',
     port                => 8080,
     domain              => $api_domain_name,
@@ -220,7 +218,7 @@ class ontoportal::appliance(
     require             => Class['epel'],
   }
 
-  class {'ontoportal::redis_goo_cache':
+  class { 'ontoportal::redis_goo_cache':
     maxmemory       => '512M',
     manage_firewall => false,
     manage_newrelic => false,
@@ -249,12 +247,12 @@ class ontoportal::appliance(
     port     => 8081,
     fsnodes  => '127.0.0.1',
   }
-  fourstore::kb { 'ontoportal_api': segments => 4 }
+  fourstore::kb { 'ontologies_api': segments => 4 }
 
   class { 'mgrep':
     mgrep_enable => true,
     group        => $group,
-    dict_path    => "${data_dir}/mgrep/dictionary/dictionary.txt"
+    dict_path    => "${data_dir}/mgrep/dictionary/dictionary.txt",
   }
   include mgrep::dictrefresh
 
@@ -263,7 +261,7 @@ class ontoportal::appliance(
   include apache::mod::proxy_http
 
   ##mysql setup
-  class {'mysql::server':
+  class { 'mysql::server':
     remove_default_accounts => true,
     override_options        => {
       'mysqld'                           => {
@@ -273,7 +271,7 @@ class ontoportal::appliance(
         'innodb_flush_method'            => 'O_DIRECT',
         'character-set-server'           => 'utf8',
       },
-    }
+    },
   }
   # annotator plus proxy reverse proxy
   nginx::resource::location { '/annotatorplus/':
@@ -292,8 +290,8 @@ class ontoportal::appliance(
   }
 
   class { 'memcached':
-    max_memory    =>  '512m',
-    max_item_size =>  '5M',
+    max_memory    => '512m',
+    max_item_size => '5M',
   }
 
   class { 'ontoportal::tomcat':
@@ -303,14 +301,15 @@ class ontoportal::appliance(
 
   # add placeholder files with proper permissions for deployment
   -> file { ['/usr/share/tomcat/webapps/biomixer.war',
-          '/usr/share/tomcat/webapps/annotatorplus.war' ]:
-    replace => 'no',
-    content => 'placeholder',
-    mode    => '0644',
-    owner   => $owner,
+      '/usr/share/tomcat/webapps/annotatorplus.war',
+    ]:
+      replace => 'no',
+      content => 'placeholder',
+      mode    => '0644',
+      owner   => $owner,
   }
   class { 'selinux':
-    mode => disabled
+    mode => disabled,
   }
   $sudo_string = 'Cmnd_Alias ONTOPORTAL = /usr/local/bin/oprestart, /usr/local/bin/opstop, /usr/local/bin/opstart, /usr/local/bin/opstatus, /usr/local/bin/opclearcaches
 Cmnd_Alias NGINX = /bin/systemctl start nginx, /bin/systemctl stop nginx, /bin/systemctl restart nginx
@@ -324,22 +323,21 @@ Cmnd_Alias UTILS = /usr/sbin/virt-what
 Cmnd_Alias AG = /usr/sbin/service agraph start, /usr/sbin/service agraph status /usr/sbin/service agraph stop
 ontoportal ALL = NOPASSWD: ONTOPORTAL, NGINX, NCBO_CRON, SOLR, FSHTTPD, FSBACKEND, FSBOSS, REDIS, UTILS, AG'
 
-
   #do not purge sudo config files.  packer build relies on them.
   class { 'sudo':
     #    purge               => false,
     #      config_file_replace => false,
   }
 
-  sudo::conf {'vagrant':
+  sudo::conf { 'vagrant':
     content  => '%vagrant ALL=(ALL) NOPASSWD: ALL',
   }
 
-  sudo::conf {'centos':
+  sudo::conf { 'centos':
     content  => '%centos ALL=(ALL) NOPASSWD: ALL',
   }
 
-  sudo::conf {'appliance':
+  sudo::conf { 'appliance':
     content  => $sudo_string,
   }
 
@@ -348,7 +346,7 @@ Kernel \r on an \m
 OntoPortal Appliance IP: \4
 '
 
-  file {'/etc/issue':
+  file { '/etc/issue':
     owner   => root,
     group   => root,
     mode    => '0644',
@@ -359,23 +357,23 @@ OntoPortal Appliance IP: \4
   #   content  => 'vagrant ALL=(ALL) NOPASSWD: ALL',
   # }
   #utils
-  file {'/usr/local/bin/oprestart':
+  file { '/usr/local/bin/oprestart':
     ensure => symlink,
     target => "${app_root_dir}/virtual_appliance/utils/oprestart",
   }
-  file {'/usr/local/bin/opstop':
+  file { '/usr/local/bin/opstop':
     ensure => symlink,
     target => "${app_root_dir}/virtual_appliance/utils/opstop",
   }
-  file {'/usr/local/bin/opstart':
+  file { '/usr/local/bin/opstart':
     ensure => symlink,
     target => "${app_root_dir}/virtual_appliance/utils/opstart",
   }
-  file {'/usr/local/bin/opstatus':
+  file { '/usr/local/bin/opstatus':
     ensure => symlink,
     target => "${app_root_dir}/virtual_appliance/utils/opstatus",
   }
-  file {'/usr/local/bin/opclearcaches':
+  file { '/usr/local/bin/opclearcaches':
     ensure => symlink,
     target => "${app_root_dir}/virtual_appliance/utils/opclearcaches",
   }
@@ -419,7 +417,7 @@ OntoPortal Appliance IP: \4
     WantedBy=multi-user.target
     | FIRSTBOOT
 
-  systemd::unit_file {'ontoportal-firstboot.service':
+  systemd::unit_file { 'ontoportal-firstboot.service':
     ensure  => present,
     content => $firstboot,
   }
@@ -427,9 +425,10 @@ OntoPortal Appliance IP: \4
     enable => true,
   }
 
-  class { 'ontoportal::agraph':
-    service_ensure => false,
-    manage_fw      => false,
-    version        => '7.0.4',
-  }
+  # ontoportal is not quite working witg agraph so disabeling it for now
+#   class { 'ontoportal::agraph':
+#     service_ensure => false,
+#     manage_fw      => false,
+#     version        => '7.0.4',
+#   }
 }

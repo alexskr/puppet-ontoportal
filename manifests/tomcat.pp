@@ -6,18 +6,17 @@
 #     web based admin tools for managing tomcat.
 #     it is useful for automatic deployments
 
-class ontoportal::tomcat(
-    Stdlib::Port $port                  = 8080,
-    Boolean $webadmin                   = true,
-    Optional[String] $java_opts         = undef,
-    Boolean $manage_newrelic            = false,
-    Optional[String] $java_opts_xmx     = undef,
-    Integer $logrotate_days             = 14,
-    Optional[String] $admin_user        = undef,
-    Optional[String] $admin_user_passwd = undef,
-    Boolean $manage_mysql_connector     = false,
-
-  ){
+class ontoportal::tomcat (
+  Stdlib::Port $port                  = 8080,
+  Boolean $webadmin                   = true,
+  Optional[String] $java_opts         = undef,
+  Boolean $manage_newrelic            = false,
+  Optional[String] $java_opts_xmx     = undef,
+  Integer $logrotate_days             = 14,
+  Optional[String] $admin_user        = undef,
+  Optional[String] $admin_user_passwd = undef,
+  Boolean $manage_mysql_connector     = false,
+) {
   $catalina_base = '/usr/share/tomcat'
   require epel
   #ensure_resource
@@ -39,7 +38,7 @@ class ontoportal::tomcat(
     if ($admin_user_passwd == undef) and ($admin_user != undef) {
       fail( 'Tomcat admin user requires password to be set.' )
     }
-    if $admin_user_passwd and  $admin_user  {
+    if $admin_user_passwd and  $admin_user {
       tomcat::config::server::tomcat_users { 'admin':
         catalina_base => $catalina_base,
         element       => 'role',
@@ -60,7 +59,7 @@ class ontoportal::tomcat(
 
   # depenencies
   $packages = ['tomcat-native','log4j']
-  ensure_packages([ $packages ])
+  ensure_packages([$packages])
 
   class { 'tomcat':
     catalina_home => $catalina_base,
@@ -119,8 +118,8 @@ class ontoportal::tomcat(
   }
   if $manage_mysql_connector {
     class { 'mysql_java_connector':
-      links   => [ '/usr/share/tomcat/lib' ],
-      require => Class[ 'tomcat' ]
+      links   => ['/usr/share/tomcat/lib'],
+      require => Class['tomcat'],
     }
   }
   logrotate::rule { 'tomcat':
