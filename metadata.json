@@ -1,6 +1,6 @@
 {
   "name": "alexskr-ontoportal",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "author": "alexskr",
   "summary": "",
   "license": "Apache-2.0",
@@ -29,7 +29,7 @@
      { "name": "puppet/nginx", "version_requirement": ">= 3.2.0" },
      { "name": "puppet/nodejs", "version_requirement": ">= 9.0.0" },
      { "name": "puppet/openvmtools", "version_requirement": ">= 2.0.0" },
-     { "name": "puppet/redis", "version_requirement": ">= 7.0.0" },
+     { "name": "puppet/redis", "version_requirement": ">= 8.0.0" },
      { "name": "puppet/selinux", "version_requirement": ">= 3.4.0" },
      { "name": "puppet/yum", "version_requirement": ">= 5.1.0" },
      { "name": "ghoneycutt/nscd", "version_requirement": ">= 1.15.0" },

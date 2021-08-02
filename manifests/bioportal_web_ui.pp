@@ -72,19 +72,20 @@ class ontoportal::bioportal_web_ui (
 
   if $enable_mod_status {
     class { 'apache::mod::status':
-      requires => ['ip 127.0.0.1 171.65.32.0/23 172.27.213.0/24 171.66.16.0/20 10.111.30.32 171.67.213.42']
+      requires => ['ip 127.0.0.1 171.65.32.0/23 172.27.213.0/24 171.66.16.0/20 10.111.30.32 171.67.213.42'],
     }
   }
 
   # in place to mitigate https://tickets.puppetlabs.com/browse/MODULES-5612
-  file { ['/etc/httpd/conf.modules.d/00-mpm.conf',
-          '/etc/httpd/conf.modules.d/00-ssl.conf',
-          '/etc/httpd/conf.modules.d/00-systemd.conf',
-          '/etc/httpd/conf.modules.d/10-passenger.conf']:
-            mode    => '0644',
-            owner   => root,
-            group   => root,
-            content => '# placeholder in place to mitigate https://tickets.puppetlabs.com/browse/MODULES-5612\n',
+  file {
+    ['/etc/httpd/conf.modules.d/00-mpm.conf',
+      '/etc/httpd/conf.modules.d/00-ssl.conf',
+      '/etc/httpd/conf.modules.d/00-systemd.conf',
+      '/etc/httpd/conf.modules.d/10-passenger.conf']:
+         mode    => '0644',
+         owner   => root,
+         group   => root,
+         content => '# placeholder in place to mitigate https://tickets.puppetlabs.com/browse/MODULES-5612\n',
   }
 
   # disable rbenv refreshing apache.  it keeps on triggering even when rbenv hasn't changed.
@@ -98,16 +99,16 @@ class ontoportal::bioportal_web_ui (
 
   ensure_packages ([
     'mariadb-devel',
-     #'mod-spdy',
-     #'nodejs', #nodeJS is required for asset pipline compilation
-    'passenger-devel'  #required for compiling passenger_native_support.so for the current Ruby interpreter
+    #'mod-spdy',
+    #'nodejs', #nodeJS is required for asset pipline compilation
+    'passenger-devel',  #required for compiling passenger_native_support.so for the current Ruby interpreter
   ])
   # redirect for maintenance
   $maintanence_rewrite = {
     'rewrite_cond' => ['%{DOCUMENT_ROOT}/system/maintenance.html -f',
       '%{SCRIPT_FILENAME} !/system/maintenance.html',
       '%{REQUEST_URI} !/system/maintenance.html$'],
-    'rewrite_rule' => '^.*$  /system/maintenance.html [L]' }
+    'rewrite_rule' => '^.*$ /system/maintenance.html [L]' }
   $slices_fqdn = $slices.map |$item| { "${item}.${domain}" }
 
   #if $enable_ssl {
@@ -123,7 +124,8 @@ class ontoportal::bioportal_web_ui (
     if $ssl_redirect {
       $_rewrites = {
         'rewrite_cond' => '%{REQUEST_URI} !(\.well-known/acme-challenge|/server-status)',
-        'rewrite_rule' => '^/?(.*) https://%{SERVER_NAME}/$1 [R,L]' },
+        'rewrite_rule' => '^/?(.*) https://%{SERVER_NAME}/$1 [R,L]'
+      }
       # $_redirect_source = undef
       # $_redirect_dest   = undef
     } else {
@@ -133,7 +135,7 @@ class ontoportal::bioportal_web_ui (
       # $_redirect_dest   = [ "https://${domain}/login", "https://${domain}/account"]
     }
     $alias_le = { alias => '/.well-known/acme-challenge/',
-                  path  => '/mnt/.letsencrypt/.well-known/acme-challenge/' },
+                  path  => '/mnt/.letsencrypt/.well-known/acme-challenge/' }
     $directories_le = {
       path              => '/mnt/.letsencrypt/.well-known/acme-challenge',
       require           => 'all granted',
