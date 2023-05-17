@@ -14,9 +14,9 @@
 # Works with 8.2.0 +
 
 class ontoportal::solr (
-  String $version                  = '8.8.2',
+  String $version                  = '8.11.2',
   String $solr_host                = '0.0.0.0',
-  Stdlib::Absolutepath $var_dir    = '/srv/solr',
+  Stdlib::Absolutepath $var_dir    = '/srv/ontoportal/data/solr',
   Stdlib::Absolutepath $data_dir   = "${var_dir}/data",
   Stdlib::Absolutepath $config_dir = "${var_dir}/config",
   String $owner                    = 'solr',
@@ -25,7 +25,7 @@ class ontoportal::solr (
   String $deployergroup            = 'ontoportal',
   Optional[String] $solr_heap      = undef,
   Boolean $newrelic                = false,
-  String $newrelic_agent_version   = '7.0.1',
+  String $newrelic_agent_version   = '7.11.1',
   Boolean $manage_firewall         = true,
   Boolean $manage_java             = true,
   Enum['8', '11'] $java_version    = '11',
