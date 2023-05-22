@@ -14,26 +14,29 @@
 
 class ontoportal::bioportal_web_ui (
   Enum['staging', 'production', 'appliance', 'development'] $environment = 'staging',
-  $ruby_version              = '2.6.7',
-  String $owner              = 'ncbo-deployer',
-  String $group              = 'ncbo',
-  Boolean $enable_mod_status = true,
-  $logrotate_httpd           = 400,
-  $logrotate_rails           = 14,
-  $railsdir                  = '/srv/ontoportal/bioportal_web_ui',
-  $domain                    = 'stage.bioontology.org',
-  $slices = ['www', 'bis', 'ctsa', 'biblio', 'psi', 'cabig', 'cgiar', 'umls', 'who-fic'], #used as SAN for letsencrypt, obo_foundary is problematic since it has underscore; www is not a slice. This would not be nessesary with wildcard certs
-  $ssl_cert                  = "/etc/letsencrypt/live/${domain}/cert.pem",
-  $ssl_key                   = "/etc/letsencrypt/live/${domain}/privkey.pem",
-  $ssl_chain                 = "/etc/letsencrypt/live/${domain}/chain.pem",
-  Boolean $enable_ssl        = true,
+  $ruby_version               = '2.7.8',
+  String $owner               = 'ontoportal',
+  String $group               = 'ontoportal',
+  Boolean $enable_mod_status  = true,
+  $logrotate_httpd            = 400,
+  $logrotate_rails            = 14,
+  $railsdir                   = '/srv/ontoportal/bioportal_web_ui',
+  $domain                     = 'stage.bioontology.org',
+  $slices = ['www', 'bis', 'ctsa', 'biblio', 'psi', 'cabig', 'cgiar', 'obo-foundry', 'umls', 'who-fic'], #used as SAN for letsencrypt
+  $ssl_cert                   = "/etc/letsencrypt/live/${domain}/cert.pem",
+  $ssl_key                    = "/etc/letsencrypt/live/${domain}/privkey.pem",
+  $ssl_chain                  = "/etc/letsencrypt/live/${domain}/chain.pem",
+  Boolean $enable_ssl         = true,
   Boolean $manage_letsencrypt = false,
-  Boolean $ssl_redirect      = false,
-  Boolean $install_ruby      = true,
-) {
+  Boolean $ssl_redirect       = false,
+  Boolean $install_ruby       = true,
+  Boolean $canonical_redirect = true
+) inherits ontoportal::params {
   include ontoportal::firewall::http
 
-  require epel
+  if $facts['os']['family'] == 'RedHat' {
+    require epel
+  }
 
   class { 'nodejs': }
   -> class { 'yarn': }
@@ -42,8 +45,8 @@ class ontoportal::bioportal_web_ui (
     default_vhost    => false,
     manage_user      => false,
     manage_group     => false,
-    trace_enable     => false,
-    server_signature => false,
+    trace_enable     => 'Off',
+    server_signature => 'Off',
     default_mods     => false,
     mpm_module       => 'worker',
     require          => File['/srv/ontoportal'],
@@ -61,8 +64,8 @@ class ontoportal::bioportal_web_ui (
     passenger_root                          => '/usr/share/ruby/vendor_ruby/phusion_passenger/locations.ini', #EL7 EPEL based mod_passenger config
     passenger_default_ruby                  => "/usr/local/rbenv/versions/${ruby_version}/bin/ruby",
     #  passenger_high_performance           => 'on',  #breaks mod_rewrite and PassengerEnabled off for widgets
-    passenger_max_pool_size                 => '30',
-    passenger_max_requests                  => '1000',
+    passenger_max_pool_size                 => 30,
+    passenger_max_requests                  => 1000,
     passenger_allow_encoded_slashes         => 'on',
     # security related:
     passenger_show_version_in_header        => 'off',
@@ -72,7 +75,7 @@ class ontoportal::bioportal_web_ui (
 
   if $enable_mod_status {
     class { 'apache::mod::status':
-      requires => ['ip 127.0.0.1 171.65.32.0/23 172.27.213.0/24 171.66.16.0/20 10.111.30.32 171.67.213.42'],
+      requires => ['ip 127.0.0.1 172.27.213.0/24 10.111.30.32'],
     }
   }
 
@@ -82,14 +85,11 @@ class ontoportal::bioportal_web_ui (
       '/etc/httpd/conf.modules.d/00-ssl.conf',
       '/etc/httpd/conf.modules.d/00-systemd.conf',
       '/etc/httpd/conf.modules.d/10-passenger.conf']:
-         mode    => '0644',
-         owner   => root,
-         group   => root,
-         content => '# placeholder in place to mitigate https://tickets.puppetlabs.com/browse/MODULES-5612\n',
+        mode    => '0644',
+        owner   => root,
+        group   => root,
+        content => '# placeholder in place to mitigate https://tickets.puppetlabs.com/browse/MODULES-5612\n',
   }
-
-  # disable rbenv refreshing apache.  it keeps on triggering even when rbenv hasn't changed.
-  #Class['profile::ncbo::rbenv'] ~> Class['apache']
 
   if $install_ruby {
     class { 'ontoportal::rbenv':
@@ -98,10 +98,8 @@ class ontoportal::bioportal_web_ui (
   }
 
   ensure_packages ([
-    'mariadb-devel',
-    #'mod-spdy',
-    #'nodejs', #nodeJS is required for asset pipline compilation
-    'passenger-devel',  #required for compiling passenger_native_support.so for the current Ruby interpreter
+      $ontoportal::params::pkg_mariadb_dev,
+      'passenger-devel',  #required for compiling passenger_native_support.so for the current Ruby interpreter
   ])
   # redirect for maintenance
   $maintanence_rewrite = {
@@ -111,9 +109,7 @@ class ontoportal::bioportal_web_ui (
     'rewrite_rule' => '^.*$ /system/maintenance.html [L]' }
   $slices_fqdn = $slices.map |$item| { "${item}.${domain}" }
 
-  #if $enable_ssl {
   if $enable_ssl {
-    # require profile::autofs::ncbo_le #for letsencrypt
     if $manage_letsencrypt {
       ontoportal::letsencrypt { $domain:
         domain => $domain,
@@ -124,15 +120,10 @@ class ontoportal::bioportal_web_ui (
     if $ssl_redirect {
       $_rewrites = {
         'rewrite_cond' => '%{REQUEST_URI} !(\.well-known/acme-challenge|/server-status)',
-        'rewrite_rule' => '^/?(.*) https://%{SERVER_NAME}/$1 [R,L]'
+        'rewrite_rule' => '^/?(.*) https://%{SERVER_NAME}/$1 [R,L]',
       }
-      # $_redirect_source = undef
-      # $_redirect_dest   = undef
     } else {
-      #only redirect login and account pages
       $_rewrites = $maintanence_rewrite
-      # $_redirect_source = [ '/login', '/account' ]
-      # $_redirect_dest   = [ "https://${domain}/login", "https://${domain}/account"]
     }
     $alias_le = { alias => '/.well-known/acme-challenge/',
                   path  => '/mnt/.letsencrypt/.well-known/acme-challenge/' }
@@ -146,8 +137,6 @@ class ontoportal::bioportal_web_ui (
     }
   } else {
     $alias_le = undef
-    # $_redirect_source = undef
-    # $_redirect_dest = undef
     $directories_le = undef
     $_rewrites = {}
   }
@@ -161,15 +150,13 @@ class ontoportal::bioportal_web_ui (
   apache::vhost { "${domain}_non-tls":
     servername            => $domain,
     serveraliases         => $slices_fqdn,
-    port                  => '80',
+    port                  => 80,
     default_vhost         => true,
     docroot               => $_docroot,
     manage_docroot        => false,
-    aliases               => $alias_le,
-    directories           => $directories_le,
-    # redirect_source       => $_redirect_source,
-    # redirect_dest         => $_redirect_dest,
-    rewrites              => [$maintanence_rewrite, $_rewrites],
+    aliases               => [ $alias_le ],
+    directories           => [ $directories_le ],
+    rewrites              => [ $maintanence_rewrite, $_rewrites ],
     custom_fragment       => template($_custom_fragment),
     passenger_app_env     => $environment,
     passenger_ruby        => "/usr/local/rbenv/versions/${ruby_version}/bin/ruby",
@@ -181,7 +168,7 @@ class ontoportal::bioportal_web_ui (
     apache::vhost { "${domain}_tls":
       servername            => $domain,
       serveraliases         => $slices_fqdn,
-      port                  => '443',
+      port                  => 443,
       default_vhost         => true,
       ssl                   => true,
       passenger_ruby        => "/usr/local/rbenv/versions/${ruby_version}/bin/ruby",
@@ -190,7 +177,6 @@ class ontoportal::bioportal_web_ui (
       ssl_chain             => $ssl_chain,
       docroot               => $_docroot,
       manage_docroot        => false,
-      #aliases              => $_aliases,
       passenger_app_env     => $environment,
       allow_encoded_slashes => 'nodecode',
       custom_fragment       => template($_custom_fragment),
