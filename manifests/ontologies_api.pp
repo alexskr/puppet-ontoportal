@@ -11,19 +11,20 @@
 #
 # Sample Usage:
 #
-class ontoportal::ontologies_api(
+class ontoportal::ontologies_api (
 
   Enum['staging', 'production', 'appliance', 'development'] $environment = 'staging',
   Boolean $install_ruby            = true,
-  String $ruby_version             = '2.6.7',
+  String $ruby_version             = '2.7.8',
   String $owner                    = 'ontoportal',
   String $group                    = 'ontoportal',
   Integer $logrotate_nginx         = 180,
   Integer $logrotate_unicorn       = 180,
   Stdlib::Absolutepath $app_root   = '/srv/ontoportal/ontologies_api',
   Stdlib::Host $domain             = 'data.ontoportal.org',
-  $slices = ['bis', 'ctsa', 'biblio', 'psi', 'cabig', 'cgiar', 'umls', 'who-fic'], #used as SAN for letsencrypt, obo_foundary is problematic since it has underscore;
+  $slices = ['bis', 'ctsa', 'biblio', 'psi', 'cabig', 'cgiar', 'obo-foundry', 'umls', 'who-fic'], #used as SAN for letsencrypt, obo_foundary is problematic since it has underscore;
   Boolean $ssl_redirect            = false,
+  Boolean $enable_letsencrypt      = true,
   Stdlib::Absolutepath $ssl_cert   = "/etc/letsencrypt/live/${domain}/cert.pem",
   Stdlib::Absolutepath $ssl_key    = "/etc/letsencrypt/live/${domain}/privkey.pem",
   Stdlib::Absolutepath $ssl_chain  = "/etc/letsencrypt/live/${domain}/fullchain.pem",
@@ -31,33 +32,39 @@ class ontoportal::ontologies_api(
   Boolean $install_java            = true,
   String $java_version             = 'java-11-openjdk-headless',
   Stdlib::Port $port               = 80,
+  Stdlib::Port $ssl_port           = 443,
   Boolean $enable_ssl              = true, #not nessesary for appliance
   Boolean $enable_nginx_status     = true, #not requried for appliance
   Boolean $manage_nginx_repo       = true,
   Boolean $manage_firewall         = true,
   Stdlib::Absolutepath $data_dir   = '/srv/ontoportal',
   Stdlib::Absolutepath $le_www_root = '/mnt/.letsencrypt',
-) {
-  if ($facts['os']['family'] != 'RedHat') or ($facts['os']['release']['major'] != '7') {
-    fail ('this module supports only EL7')
+) inherits ontoportal::params {
+  case $facts['os']['family'] {
+    'RedHat': {
+      if ($facts['os']['release']['major'] != '7') {
+        fail ('this module doesnt support this platform')
+      }
+      require epel
+      Class[epel] -> Class[nginx]
+    }
+    'Debian': {
+      #not yet fully supported
+    }
   }
-
-  require epel
-
-  Class[epel] -> Class[nginx]
   selinux::boolean { 'httpd_can_sendmail': }
   selinux::boolean { 'httpd_can_network_connect': }
 
   if $manage_firewall {
     firewall_multi { "34 allow inbound API on port ${port}":
-      dport  => $port,
+      dport  => [$port, $ssl_port],
       proto  => tcp,
       action => accept,
     }
   }
-  ensure_packages ([
-      'mariadb-devel', # for mysql2 gem
-      'libxml2-devel', # for xml gem
+  ensure_packages( [
+      $ontoportal::params::pkg_mariadb_dev,
+      $ontoportal::params::pkg_libxml2_dev,
   ])
 
   # ontoportal/deployer user needs sudo to restart unicorn on deployments
@@ -82,7 +89,7 @@ class ontoportal::ontologies_api(
 
   # FIXME move autofs to role
   if $environment != 'appliance' {
-    file { ["${data_dir}/repository"]:
+    file { ["${data_dir}/repository" ]:
       ensure => link,
       target => "/srv/ncbo/share/env/${environment}/repository",
     }
@@ -98,6 +105,8 @@ class ontoportal::ontologies_api(
 
   class { 'nginx':
     manage_repo              => $manage_nginx_repo,
+    # https://forge.puppet.com/modules/puppet/nginx#idempotency-with-nginx-1150-and-later
+    nginx_version            => '1.20',
     passenger_package_ensure => false,
     client_max_body_size     => '1G',
     http_tcp_nopush          => 'on',
@@ -124,11 +133,10 @@ class ontoportal::ontologies_api(
     location            => '^~ /.well-known/acme-challenge/',
     www_root            => $le_www_root ,
     location_cfg_append => {
-      default_type => 'text/plain',
-    },
+      default_type => 'text/plain', },
   }
 
-  if  $enable_ssl {
+  if  $enable_ssl and $enable_letsencrypt {
     # FIXME move autofs to role
     require profile::autofs::ncbo_le
     $_san = $slices.map |$item| { "${item}.${domain}" }
@@ -140,16 +148,21 @@ class ontoportal::ontologies_api(
   }
 
   # enable TLS if letsencrypt cert is generated.  FIXME This requires second puppet run so this should be refactored
-  $enable_tls = $domain in $facts['letsencrypt_directory']
+  if $enable_letsencrypt {
+    $_enable_ssl = $domain in $facts['letsencrypt_directory']
+  } else {
+    $_enable_ssl = $enable_ssl
+  }
 
   nginx::resource::server { 'ontologies_api':
     ensure           => present,
-    server_name      => [$domain, "*.${domain}", $::fqdn],
+    server_name      => [$domain, "*.${domain}", $facts['networking']['fqdn']],
     listen_port      => $port,
+    ssl_port         => $ssl_port,
     listen_options   => 'default_server',
     proxy            => 'http://ontologies_api' ,
     index_files      => [],
-    ssl              => $enable_tls,
+    ssl              => $_enable_ssl,
     ssl_redirect     => $ssl_redirect,
     ssl_cert         => $ssl_chain,
     ssl_key          => $ssl_key,
