@@ -3,6 +3,7 @@
 # this is more of a role than a profile.
 class ontoportal::appliance::api (
   $api_port = $ontoportal::appliance::api_port,
+  $api_ssl_port = $ontoportal::appliance::api_ssl_port,
   $owner = $ontoportal::appliance::owner,
   $group = $ontoportal::appliance::group,
   $appliance_version = $ontoportal::appliance::appliance_version,
@@ -10,10 +11,11 @@ class ontoportal::appliance::api (
   $data_dir = $ontoportal::appliance::data_dir,
   $app_root_dir  = $ontoportal::appliance::app_root_dir,
   $ui_domain_name = $ontoportal::appliance::ui_domain_name,
-  $api_domain_name = $ontoportal::appliance::api_domain_nam,
+  $api_domain_name = $ontoportal::appliance::api_domain_name,
 ) {
-  include ontoportal::firewall::p8080
+  include ontoportal::firewall::api
 
+  User <| title == ontoportal |> { groups +> 'tomcat' }
   # Create Directories (including parent directories)
   file { [$data_dir,
       "${data_dir}/reports", "${data_dir}/mgrep",
@@ -42,14 +44,20 @@ class ontoportal::appliance::api (
   class { 'ontoportal::ontologies_api':
     environment         => 'appliance',
     port                => $api_port,
+    ssl_port            => $api_ssl_port,
     domain              => $api_domain_name,
     owner               => 'ontoportal',
     group               => 'ontoportal',
-    enable_ssl          => false, #not nessesary for appliance
+    enable_ssl          => true, #not nessesary for appliance
+    enable_letsencrypt  => false, #not nessesary for appliance
     enable_nginx_status => false, #not requried for appliance
     manage_nginx_repo   => false,
+    manage_firewall     => false,
     install_ruby        => false,
     install_java        => false,
+    ssl_cert            => '/etc/pki/tls/certs/localhost.crt',
+    ssl_chain           => '/etc/pki/tls/certs/localhost.crt',
+    ssl_key             => '/etc/pki/tls/private/localhost.key',
     app_root            => "${app_root_dir}/ontologies_api",
     require             => Class['epel'],
   }
@@ -63,6 +71,7 @@ class ontoportal::appliance::api (
     manage_firewall => false,
     workdir         => "${data_dir}/redis_persistent",
     manage_newrelic => false,
+    require         => File[$data_dir],
   }
   class { 'ontoportal::redis_http_cache':
     maxmemory       => '512M',
@@ -100,16 +109,12 @@ class ontoportal::appliance::api (
     proxy  => 'http://localhost:8082/annotatorplus/',
   }
 
-  #class { 'ontoportal::tomcat':
-  #  port     => 8082,
-  #  webadmin => false,
-  #}
-
   # add placeholder files with proper permissions for deployment
-  file { '/usr/share/tomcat/webapps/annotatorplus.war':
+  file { '/srv/tomcat/webapps/annotatorplus.war':
     replace => 'no',
     content => 'placeholder',
     mode    => '0644',
     owner   => $owner,
+    require => Class[ontoportal::tomcat],
   }
 }
