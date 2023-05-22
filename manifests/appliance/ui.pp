@@ -9,10 +9,8 @@ class ontoportal::appliance::ui (
   $data_dir = $ontoportal::appliance::data_dir,
   $app_root_dir  = $ontoportal::appliance::app_root_dir,
   $ui_domain_name = $ontoportal::appliance::ui_domain_name,
-  $api_domain_name = $ontoportal::appliance::api_domain_nam,
+  $api_domain_name = $ontoportal::appliance::api_domain_name,
 ) {
-  include ontoportal::firewall
-  include ontoportal::firewall::ssh
   include ontoportal::firewall::http
 
   # Create Directories (including parent directories)
@@ -76,12 +74,12 @@ class ontoportal::appliance::ui (
     max_memory    => '512m',
     max_item_size => '5M',
   }
-
   # add placeholder files with proper permissions for deployment
-  file { '/usr/share/tomcat/webapps/biomixer.war':
+  file { '/srv/tomcat/webapps/biomixer.war':
     replace => 'no',
     content => 'placeholder',
     mode    => '0644',
     owner   => $owner,
+    require => Class[ontoportal::tomcat],
   }
 }
