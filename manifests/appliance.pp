@@ -4,23 +4,88 @@
 class ontoportal::appliance (
   Boolean $ui = true,
   Boolean $api = true,
-  Boolean $data = true,
   $owner = 'ontoportal',
   $group = 'ontoportal',
-  $appliance_version = '3.0',
-  $ruby_version = '2.6.7',
+  String $appliance_version = '3.1',
+  String $ruby_version = '2.7.8',
   $data_dir = '/srv/ontoportal/data',
   $app_root_dir  = '/srv/ontoportal',
   $ui_domain_name = 'appliance.ontoportal.org',
   $api_domain_name = 'data.appliance.ontoportal.org',
-  $api_port = 8080,
+  Integer $api_port = 8080,
+  Integer $api_ssl_port = 8443,
+  Boolean $manage_selinux = true,
 ) {
+
+  include ontoportal::firewall
+  include ontoportal::firewall::ssh
+
+  # system utilities/libraries
+  case $facts['os']['family'] {
+    'RedHat': {
+      require epel
+      Class[epel] -> Class[nginx]
+      $packages = [
+        'git-lfs',
+        'bind-utils',
+        'bzip2',
+        'bash-completion',
+        'curl',
+        'lsof',
+        'ncdu',
+        'nano',
+        'htop',
+        'rsync',
+        'screen',
+        'sysstat',
+        'time',
+        'unzip',
+        'vim-enhanced',
+        'wget',
+        'zip',
+        'rdate',
+        'tree',
+        'tmux',
+        'yum-utils',
+        'telnet',
+      ]
+    }
+    'Debian': {
+      $packages = [
+        'git-lfs',
+        'bind9-dnsutils',
+        'bzip2',
+        'bash-completion',
+        'curl',
+        'lsof',
+        'ncdu',
+        'nano',
+        'htop',
+        'rsync',
+        'screen',
+        'sysstat',
+        'time',
+        'unzip',
+        'vim',
+        'wget',
+        'zip',
+        'rdate',
+        'tree',
+        'tmux',
+        'telnet',
+      ]
+    }
+    default: { fail('unsupported platform') }
+  }
+
+  ensure_packages( $packages )
+
   include nscd
 
   kernel_parameter { 'net.ifnames':
     value => '0',
   }
-  require epel
+
   class { 'motd':
     content => "OntoPortal Appliance v${appliance_version}\n",
   }
@@ -50,8 +115,8 @@ class ontoportal::appliance (
   #  sysctl {'vm.swappiness': value => '0' }
   #}
 
-  case $::virtual {
-    'vmware': {
+  case $facts['virtual'] {
+    'zvmware': {
       include openvmtools
     }
     'z': { #disabled this for the time being; it is currently handled with scripts during packaging 
@@ -73,43 +138,12 @@ class ontoportal::appliance (
     package_manage => false,
   }
 
-  # system utilities/libraries
-  ensure_packages([
-      'git-lfs',
-      'bind-utils',
-      'bzip2',
-      'bash-completion',
-      'curl',
-      'lsof',
-      'ncdu',
-      'nano',
-      'htop',
-      'rsync',
-      'screen',
-      'sysstat',
-      'time',
-      'unzip',
-      'vim-enhanced',
-      'which',
-      'wget',
-      'zip',
-      'rdate',
-      'tree',
-      'tmux',
-      'yum-utils',
-      'telnet',
-  ])
-
   ensure_packages([
       'linux-firmware',
     ],
     { ensure => absent },
   )
 
-  include ontoportal::firewall
-  include ontoportal::firewall::ssh
-  include ontoportal::firewall::http
-  include ontoportal::firewall::p8080
   ##aws cloud-init
 ## ensure_packages (['cloud-init'])
 ##   file { '/etc/cloud/cloud.cfg.d/08_ontoportal.cfg':
@@ -129,10 +163,13 @@ class ontoportal::appliance (
     comment    => 'OntoPortal Service Account',
     system     => true,
     managehome => true,
+    # ontoportal user needs to copy war files for deployment so adding to tomcat group is an easy fix but could be problematic
+    # groups     => ['tomcat'],
     password   => '!!',
     shell      => '/bin/bash',
     uid        => '888',
   }
+
   file { '/home/ontoportal/.gemrc':
     owner   => 'ontoportal',
     mode    => '0644',
@@ -144,9 +181,11 @@ class ontoportal::appliance (
     ensure => present,
     gid    => '888',
   }
+
   file_line { 'ontoportal ruby gem path':
-    path => '/home/ontoportal/.bashrc',
-    line => 'which ruby >/dev/null && which gem >/dev/null && PATH="$(ruby -r rubygems -e \'puts Gem.user_dir\')/bin:$PATH"',
+    path    => '/home/ontoportal/.bashrc',
+    line    => 'which ruby >/dev/null && which gem >/dev/null && PATH="$(ruby -r rubygems -e \'puts Gem.user_dir\')/bin:$PATH"',
+    require => User['ontoportal'],
   }
 
   # ssh user
@@ -154,7 +193,7 @@ class ontoportal::appliance (
     ensure     => 'present',
     comment    => 'OntoPortal SysAdmin User',
     managehome => true,
-    # password is set primarely for packaging appliance and will be reset by cleanup scripts
+    # password is set primarely for packaging appliance via packer and it is reset by cleanup scripts
     password   => '$6$z3zd7CSW$zlHFTTjkpBVp8fhpi5ZwdDxHFd.bfBK/b9jktYWwueLY/ddUf.31Y2zDcIsGuNQ4L/qBHoE8MCJXraQICAldX.',
     shell      => '/bin/bash',
   }
@@ -166,24 +205,31 @@ class ontoportal::appliance (
       group  => $group,
       mode   => '0775',
   }
+
   class { 'ontoportal::rbenv':
     ruby_version => $ruby_version,
   }
+
   # tomcat is installed on both ui for biomixer and api for annotator+
   class { 'ontoportal::tomcat':
-    port     => 8082,
-    webadmin => false,
+    port   => 8082,
+    #####    before => User['ontoportal'],
   }
+
   if $ui {
     contain ontoportal::appliance::ui
   }
+
   if $api {
     contain ontoportal::appliance::api
   }
 
-  class { 'selinux':
-    mode => disabled,
+  if $manage_selinux {
+    class { 'selinux':
+      mode => disabled,
+    }
   }
+
   $sudo_string = 'Cmnd_Alias ONTOPORTAL = /usr/local/bin/oprestart, /usr/local/bin/opstop, /usr/local/bin/opstart, /usr/local/bin/opstatus, /usr/local/bin/opclearcaches
 Cmnd_Alias NGINX = /bin/systemctl start nginx, /bin/systemctl stop nginx, /bin/systemctl restart nginx
 Cmnd_Alias NCBO_CRON = /bin/systemctl start ncbo_cron, /bin/systemctl stop ncbo_cron, /bin/systemctl restart ncbo_cron
@@ -192,26 +238,28 @@ Cmnd_Alias FSHTTPD = /bin/systemctl start 4s-httpd, /bin/systemctl stop 4s-httpd
 Cmnd_Alias FSBACKEND = /bin/systemctl start 4s-backend, /bin/systemctl stop 4s-backend, /bin/systemctl restart 4s-backend
 Cmnd_Alias FSBOSS = /bin/systemctl start 4s-boss, /bin/systemctl stop 4s-boss, /bin/systemctl restart 4s-boss
 Cmnd_Alias REDIS = /bin/systemctl start redis-server-*.service , /bin/systemctl stop redis-server-*.service , /bin/systemctl restart redis-server-*.service
-Cmnd_Alias UTILS = /usr/sbin/virt-what
+Cmnd_Alias UTILS = /usr/sbin/virt-what, /srv/ontoportal/virtual_appliance/utils/bootstrap/gen_tlscert.sh
 Cmnd_Alias AG = /usr/sbin/service agraph start, /usr/sbin/service agraph status /usr/sbin/service agraph stop
-ontoportal ALL = NOPASSWD: ONTOPORTAL, NGINX, NCBO_CRON, SOLR, FSHTTPD, FSBACKEND, FSBOSS, REDIS, UTILS, AG'
+ontoportal ALL = NOPASSWD: ONTOPORTAL, NGINX, NCBO_CRON, SOLR, FSHTTPD, FSBACKEND, FSBOSS, REDIS, UTILS, AG
+'
 
   #do not purge sudo config files.  packer build relies on them.
   class { 'sudo':
-    #    purge               => false,
-    #      config_file_replace => false,
+    # purge               => false,
+    # config_file_replace => false,
   }
 
+  # required for vagrant builds; it is purged
   sudo::conf { 'vagrant':
-    content  => '%vagrant ALL=(ALL) NOPASSWD: ALL',
+    content => '%vagrant ALL=(ALL) NOPASSWD: ALL',
   }
 
   sudo::conf { 'centos':
-    content  => '%centos ALL=(ALL) NOPASSWD: ALL',
+    content => '%centos ALL=(ALL) NOPASSWD: ALL',
   }
 
   sudo::conf { 'appliance':
-    content  => $sudo_string,
+    content => $sudo_string,
   }
 
   $issue_string='\S
@@ -225,10 +273,7 @@ OntoPortal Appliance IP: \4
     mode    => '0644',
     content => $issue_string,
   }
-  # sudo::conf { 'vagrant':
-  #   priority => '10',
-  #   content  => 'vagrant ALL=(ALL) NOPASSWD: ALL',
-  # }
+
   #utils
   file { '/usr/local/bin/oprestart':
     ensure => symlink,
@@ -257,6 +302,7 @@ OntoPortal Appliance IP: \4
     group    => $group,
     source   => 'https://github.com/ncbo/virtual_appliance',
     branch   => $appliance_version,
+    require  => User[$owner],
   }
 
   -> file { "${app_root_dir}/virtual_appliance":
@@ -266,8 +312,10 @@ OntoPortal Appliance IP: \4
     mode   => '0755',
   }
 
+  # systemd service for the initial appliance configuration.
+  # Ideally it should be executed by cloud-init but it is supported on all platforms so we rely on systemd
   # https://cloudinit.readthedocs.io/en/latest/topics/boot.html
-  # fist boot needs to run after cloud-init is completely done.
+  # fistboot script needs to run after cloud-init is completely done.
   $firstboot = @("FIRSTBOOT"/L)
     [Unit]
     Description=Initial Ontoportal Appliance reconfiguration which runs only on first boot.
