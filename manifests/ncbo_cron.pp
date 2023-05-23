@@ -16,32 +16,39 @@ class ontoportal::ncbo_cron(
   $environment          = 'staging',
   $owner                = 'ncbo-deployer',
   $group                = 'ncbo-deployer',
-  $app_root             = '/srv//ncbo_cron',
+  $app_root             = '/srv/ontoportal/ncbo_cron',
   $service              = 'running',
   $repo_path            = '/srv/ncbo/repository',
   $reposymlink          = undef, #"/srv/ncbo/share/env/${ncbo_environment}/repository",
-  $raptor2_ver          = undef,
-  $ruby_version         = '2.6.7',
+  $ruby_version         = '2.7.8',
   $logrotate_days       = 356,
   Boolean $install_java = true,
   Boolean $install_ruby = true,
-  $java_version         = 'java-11-openjdk',
-  ) {
+) {
+  require ontoportal::params
+  case $facts['os']['family'] {
+    'RedHat': {
+      require epel
+      require librdf::raptor2
+    }
+    'Debian': {
+      ensure_packages(['raptor2-utils'])
+    }
+  }
 
-  require librdf::raptor2
   if $install_ruby {
     class { 'ontoportal::rbenv':
       ruby_version => $ruby_version,
     }
   }
 
-  ensure_packages([
-    'mariadb-devel',
-    'libxml2-devel',
-    'perl-libwww-perl', # required for 4s-dump to work
+  ensure_packages( [
+      $ontoportal::params::pkg_mariadb_dev,
+      $ontoportal::params::pkg_libxml2_dev,
+      $ontoportal::params::pkg_libwww_perl,
   ])
 
-  file { [ $app_root ]:
+  file { [$app_root]:
     ensure  => directory,
     owner   => $owner,
     group   => $group ,
@@ -50,7 +57,7 @@ class ontoportal::ncbo_cron(
   }
 
   if $environment == 'appliance' {
-    file { [ $repo_path ]:
+    file { [$repo_path]:
       ensure => directory,
       owner  => $owner,
       group  => $group ,
@@ -60,7 +67,7 @@ class ontoportal::ncbo_cron(
   else {
     file { ['/srv/ncbo/repository']:
       ensure => link,
-      target => "/srv/ncbo/share/env/${environment}/repository"
+      target => "/srv/ncbo/share/env/${environment}/repository",
     }
   }
 
@@ -73,7 +80,7 @@ class ontoportal::ncbo_cron(
     ensure  => present,
     #content => "00 05 * * * root find /tmp -mtime +0 -type f -user ${owner} -delete > /dev/null 2>&1 ",
     #content => "00 05 * * * root find /tmp/systemd-private-*-ncbo_cron.service-*/tmp/* -mtime +1 -delete &>> /tmp/cron_tmpclean.log ",
-    content => "00 05 * * * root find /tmp/systemd-private-*-ncbo_cron.service-*/tmp/* -mtime +1 -delete",
+    content => '00 05 * * * root find /tmp/systemd-private-*-ncbo_cron.service-*/tmp/* -mtime +1 -delete',
     owner   => 'root',
     group   => 'root',
     mode    => '0644',
@@ -82,33 +89,32 @@ class ontoportal::ncbo_cron(
   #java required for owlapi/owl validation
   if $install_java {
     class { 'java':
-      package => "${java_version}-headless"
+      package => "${ontoportal::params::java_package}-headless",
     }
+    #   alternatives { 'java':
+    #  path    => "${ontoportal::params::java_package}.x86_64",
+    #  require => Package["${ontoportal::params::java_package}-headless"],
+    #}
     #temporary work around
     #https://github.com/voxpupuli/puppet-alternatives/issues/71
     #this will obviously wouldn't work for other than version 11 of java
-    ->exec{"make_default_${java_version}":
-      command => "/usr/sbin/alternatives  --set java ${java_version}.x86_64",
+    #->exec{"make_default_${java_version}":
+    ->exec { "make_default_${ontoportal::params::java_package}":
+      command => "/usr/sbin/alternatives  --set java ${ontoportal::params::java_package}.x86_64",
       unless  => '/usr/bin/readlink /etc/alternatives/java | /usr/bin/grep -q /java-11-openjdk-11' #
-  }
-    #
-    #  -> alternatives { 'java':
-    #  path => "${java_version}.x86_64",
-    #}
+    }
   }
 
-  systemd::tmpfile {'ncbo_cron.conf':
-    ensure  => present,
-    content => "d /var/run/ncbo_cron 0755 ${owner} ${group}"
+  systemd::tmpfile { 'ncbo_cron.conf':
+    content => "d /var/run/ncbo_cron 0755 ${owner} ${group}",
   }
 
-  systemd::unit_file {'ncbo_cron.service':
-    ensure  => present,
+  systemd::unit_file { 'ncbo_cron.service':
     content => epp('ontoportal/ncbo_cron.service.epp', {
-      app_root => $app_root,
-      user     => $owner,
-      group    => $group,
-      },)
+        app_root => $app_root,
+        user     => $owner,
+        group    => $group,
+        }),
   }
   ~> service { 'ncbo_cron':
     # ensure     => 'running',
