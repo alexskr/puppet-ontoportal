@@ -1,15 +1,14 @@
 class ontoportal::rbenv(
-  String $ruby_version    = $title,
-  String $bundler_version = '2.4',
-  Boolean $global         = true
+  String $ruby_version     = $title,
+  String $rubygems_version = '3.2.3',
+  String $bundler_version  = '2.4',
+  Boolean $global          = true
 ) {
   class { 'rbenv': }
-  -> rbenv::plugin { ['rbenv/rbenv-vars', 'rbenv/ruby-build']: }
-  -> rbenv::build { $ruby_version: global => $global }
-  -> rbenv::gem { "bundler-v${bundler_version}-for-${ruby_version}":
-    gem          => 'bundler',
-    version      => $bundler_version,
-    skip_docs    => true,
-    ruby_version => $ruby_version,
+  rbenv::plugin { ['rbenv/rbenv-vars', 'rbenv/ruby-build']: latest => true }
+  rbenv::build { $ruby_version:
+    rubygems_version => $rubygems_version,
+    bundler_version  => $bundler_version,
+    global           => $global,
   }
 }
