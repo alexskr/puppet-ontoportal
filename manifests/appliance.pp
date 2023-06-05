@@ -6,7 +6,7 @@ class ontoportal::appliance (
   Boolean $api = true,
   $owner = 'ontoportal',
   $group = 'ontoportal',
-  String $appliance_version = '3.1',
+  String $appliance_version = '3.2',
   String $ruby_version = '2.7.8',
   $data_dir = '/srv/ontoportal/data',
   $app_root_dir  = '/srv/ontoportal',
