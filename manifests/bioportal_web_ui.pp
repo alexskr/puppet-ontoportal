@@ -14,23 +14,23 @@
 
 class ontoportal::bioportal_web_ui (
   Enum['staging', 'production', 'appliance', 'development'] $environment = 'staging',
-  $ruby_version               = '2.7.8',
-  String $owner               = 'ontoportal',
-  String $group               = 'ontoportal',
-  Boolean $enable_mod_status  = true,
-  $logrotate_httpd            = 400,
-  $logrotate_rails            = 14,
-  $railsdir                   = '/srv/ontoportal/bioportal_web_ui',
-  $domain                     = 'stage.bioontology.org',
-  $slices = ['www', 'bis', 'ctsa', 'biblio', 'psi', 'cabig', 'cgiar', 'obo-foundry', 'umls', 'who-fic'], #used as SAN for letsencrypt
-  $ssl_cert                   = "/etc/letsencrypt/live/${domain}/cert.pem",
-  $ssl_key                    = "/etc/letsencrypt/live/${domain}/privkey.pem",
-  $ssl_chain                  = "/etc/letsencrypt/live/${domain}/chain.pem",
-  Boolean $enable_ssl         = true,
-  Boolean $manage_letsencrypt = false,
-  Boolean $ssl_redirect       = false,
-  Boolean $install_ruby       = true,
-  Boolean $canonical_redirect = true
+  String $ruby_version            = '2.7.8',
+  String $owner                   = 'ontoportal',
+  String $group                   = 'ontoportal',
+  Boolean $enable_mod_status      = true,
+  Integer $logrotate_httpd        = 400,
+  Integer $logrotate_rails        = 14,
+  Stdlib::Absolutepath $railsdir  = '/srv/ontoportal/bioportal_web_ui',
+  Stdlib::Host $domain            = 'stage.bioontology.org',
+  Array $slices = ['www', 'bis', 'ctsa', 'biblio', 'psi', 'cabig', 'cgiar', 'obo-foundry', 'umls', 'who-fic'], #used as SAN for letsencrypt
+  Stdlib::Absolutepath $ssl_cert  = "/etc/letsencrypt/live/${domain}/cert.pem",
+  Stdlib::Absolutepath $ssl_key   = "/etc/letsencrypt/live/${domain}/privkey.pem",
+  Stdlib::Absolutepath $ssl_chain = "/etc/letsencrypt/live/${domain}/chain.pem",
+  Boolean $enable_ssl             = true,
+  Boolean $manage_letsencrypt     = false,
+  Boolean $ssl_redirect           = false,
+  Boolean $install_ruby           = true,
+  Boolean $canonical_redirect     = true
 ) inherits ontoportal::params {
   include ontoportal::firewall::http
 
@@ -39,7 +39,7 @@ class ontoportal::bioportal_web_ui (
   }
 
   class { 'nodejs': }
-  -> class { 'yarn': }
+  class { 'yarn': }
 
   class { 'apache':
     default_vhost    => false,
@@ -84,11 +84,12 @@ class ontoportal::bioportal_web_ui (
     ['/etc/httpd/conf.modules.d/00-mpm.conf',
       '/etc/httpd/conf.modules.d/00-ssl.conf',
       '/etc/httpd/conf.modules.d/00-systemd.conf',
-      '/etc/httpd/conf.modules.d/10-passenger.conf']:
-        mode    => '0644',
-        owner   => root,
-        group   => root,
-        content => '# placeholder in place to mitigate https://tickets.puppetlabs.com/browse/MODULES-5612\n',
+      '/etc/httpd/conf.modules.d/10-passenger.conf',
+    ]:
+      mode    => '0644',
+      owner   => root,
+      group   => root,
+      content => '# placeholder in place to mitigate https://tickets.puppetlabs.com/browse/MODULES-5612\n',
   }
 
   if $install_ruby {
@@ -154,9 +155,9 @@ class ontoportal::bioportal_web_ui (
     default_vhost         => true,
     docroot               => $_docroot,
     manage_docroot        => false,
-    aliases               => [ $alias_le ],
-    directories           => [ $directories_le ],
-    rewrites              => [ $maintanence_rewrite, $_rewrites ],
+    aliases               => [$alias_le],
+    directories           => [$directories_le],
+    rewrites              => [$maintanence_rewrite, $_rewrites],
     custom_fragment       => template($_custom_fragment),
     passenger_app_env     => $environment,
     passenger_ruby        => "/usr/local/rbenv/versions/${ruby_version}/bin/ruby",

@@ -2,21 +2,20 @@
 
 # this is more of a role than a profile.
 class ontoportal::appliance (
-  Boolean $ui = true,
-  Boolean $api = true,
-  $owner = 'ontoportal',
-  $group = 'ontoportal',
-  String $appliance_version = '3.2',
-  String $ruby_version = '2.7.8',
-  $data_dir = '/srv/ontoportal/data',
-  $app_root_dir  = '/srv/ontoportal',
-  $ui_domain_name = 'appliance.ontoportal.org',
-  $api_domain_name = 'data.appliance.ontoportal.org',
-  Integer $api_port = 8080,
-  Integer $api_ssl_port = 8443,
-  Boolean $manage_selinux = true,
+  Boolean $ui                        = true,
+  Boolean $api                       = true,
+  String $owner                      = 'ontoportal',
+  String $group                      = 'ontoportal',
+  String $appliance_version          = '3.2',
+  String $ruby_version               = '2.7.8',
+  Stdlib::Absolutepath $data_dir     = '/srv/ontoportal/data',
+  Stdlib::Absolutepath $app_root_dir = '/srv/ontoportal',
+  Stdlib::Host $ui_domain_name       = 'appliance.ontoportal.org',
+  Stdlib::Host $api_domain_name      = 'data.appliance.ontoportal.org',
+  Stdlib::Port $api_port             = 8080,
+  Stdlib::Port $api_ssl_port         = 8443,
+  Boolean $manage_selinux            = true,
 ) {
-
   include ontoportal::firewall
   include ontoportal::firewall::ssh
 
@@ -79,8 +78,6 @@ class ontoportal::appliance (
   }
 
   ensure_packages( $packages )
-
-  include nscd
 
   kernel_parameter { 'net.ifnames':
     value => '0',
@@ -224,7 +221,7 @@ class ontoportal::appliance (
     contain ontoportal::appliance::api
   }
 
-  if $manage_selinux {
+  if $facts['os']['family'] == 'RedHat' and $manage_selinux {
     class { 'selinux':
       mode => disabled,
     }
