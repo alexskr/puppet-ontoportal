@@ -1,16 +1,15 @@
 #this profile class is written for arioch/puppet-redis which is a bit quircky
 
-class ontoportal::redis_goo_cache(
+class ontoportal::redis::http_cache (
   Optional[String] $maxmemory = undef,
-  Stdlib::Port $port          = 6381,
+  Stdlib::Port $port          = 6380,
   Boolean $manage_firewall    = true,
   Boolean $manage_newrelic    = true,
-  $fwsrc = lookup("ontologies_api_nodes_${facts['ncbo_environment']}", undef, undef, []) + lookup('ips.vpn', undef, undef, []),
-  ){
+  $fwsrc = undef,
+) {
+  $redis_role = 'http_cache'
 
-  $redis_role = 'goo_cache'
-
-  include ontoportal::redis_base
+  include ontoportal::redis
 
   if $maxmemory {
     $_maxmemory = $maxmemory
@@ -23,7 +22,7 @@ class ontoportal::redis_goo_cache(
     }
   }
 
-  redis::instance  { $redis_role:
+  redis::instance { $redis_role:
     port             => $port,
     save_db_to_disk  => false,
     protected_mode   => false,
@@ -31,7 +30,7 @@ class ontoportal::redis_goo_cache(
     tcp_keepalive    => 600,
     service_enable   => true,
     service_ensure   => 'running',
-    maxmemory_policy => 'allkeys-lru',
+    maxmemory_policy => 'volatile-ttl',
     maxmemory        => $_maxmemory,
     bind             => [],
     unixsocket       => '',
@@ -53,11 +52,5 @@ class ontoportal::redis_goo_cache(
       redis_role => "redis_${redis_role}",
       port       => $port,
     }
-  }
-
-  selinux::port { "allow-redis-${port}":
-    seltype  => 'redis_port_t',
-    port     => $port,
-    protocol => 'tcp',
   }
 }

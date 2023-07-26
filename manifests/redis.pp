@@ -1,22 +1,29 @@
 #this profile class is written for arioch/puppet-redis which is a bit quircky
 
-class ontoportal::redis(
-  Optional[String] $maxmemory = undef,
-  ){
-
-  require epel
-  include disable_transparent_hugepage
-
-  if $maxmemory {
-    $_maxmemory = $maxmemory
-  } else {
-    $_maxmemory = "$facts['memory']['system']['total_bytes'] * 2/3"
+class ontoportal::redis (
+  Boolean $optimize_kernel      = true,
+  Boolean $manage_repo          = true,
+  Optional[String] $redis_version = undef,
+) {
+  case $facts['os']['family'] {
+    'RedHat': {
+      contain ontoportal::redis::install_redhat
+    }
+    'Debian': {
+      contain redis
+      #  contain ontoportal::redis::install_debian
+    }
+    default: {
+      fail('Unsupported OS')
+    }
   }
 
-  class { 'redis':
-    protected_mode => 'no',
-    maxmemory      => $_maxmemory,
-    bind           => $facts['networking']['ip'],
-  #service_manage => true,
+  # https://redis.io/topics/admin
+  if  $optimize_kernel {
+    include redis::administration
+    kernel_parameter { 'transparent_hugepage':
+      ensure => present,
+      value  => 'never',
+    }
   }
 }
