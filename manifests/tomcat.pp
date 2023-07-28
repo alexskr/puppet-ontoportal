@@ -1,7 +1,7 @@
 # a wrapper class for pupppetlabs/tomcat module.
 # installs tomcat9 from source
 class ontoportal::tomcat(
-  String $version                     = '9.0.75',
+  String $version                     = '9.0.78',
   Stdlib::Port $port                  = 8080,
   Stdlib::HTTPUrl $source_url = "https://archive.apache.org/dist/tomcat/tomcat-9/v${version}/bin/apache-tomcat-${version}.tar.gz",
   Boolean $webadmin                   = false,
