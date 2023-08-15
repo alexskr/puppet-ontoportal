@@ -34,12 +34,12 @@ class ontoportal::appliance::api (
     install_ruby => false,
     app_root     => "${app_root_dir}/ncbo_cron",
     repo_path    => "${data_dir}/repository",
-    require      => Class['epel'],
+    #    require      => Class['epel'],
   }
 
   #chaining classes so that java alternatives is set properly after 1 run.
   # chaining api and UI,  sometimes passenger yum repo confuses nginx installation.
-  Class['epel'] -> Class['ontoportal::ontologies_api']
+  ##  Class['epel'] -> Class['ontoportal::ontologies_api']
 
   class { 'ontoportal::ontologies_api':
     environment         => 'appliance',
@@ -59,21 +59,21 @@ class ontoportal::appliance::api (
     ssl_chain           => '/etc/pki/tls/certs/localhost.crt',
     ssl_key             => '/etc/pki/tls/private/localhost.key',
     app_root            => "${app_root_dir}/ontologies_api",
-    require             => Class['epel'],
+    #   require             => Class['epel'],
   }
 
-  class { 'ontoportal::redis_goo_cache':
+  class { 'ontoportal::redis::goo_cache':
     maxmemory       => '512M',
     manage_firewall => false,
     manage_newrelic => false,
   }
-  class { 'ontoportal::redis_persistent':
+  class { 'ontoportal::redis::persistent':
     manage_firewall => false,
     workdir         => "${data_dir}/redis_persistent",
     manage_newrelic => false,
     require         => File[$data_dir],
   }
-  class { 'ontoportal::redis_http_cache':
+  class { 'ontoportal::redis::http_cache':
     maxmemory       => '512M',
     manage_firewall => false,
     manage_newrelic => false,
