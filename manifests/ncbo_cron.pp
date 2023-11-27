@@ -80,7 +80,7 @@ class ontoportal::ncbo_cron(
     ensure  => present,
     #content => "00 05 * * * root find /tmp -mtime +0 -type f -user ${owner} -delete > /dev/null 2>&1 ",
     #content => "00 05 * * * root find /tmp/systemd-private-*-ncbo_cron.service-*/tmp/* -mtime +1 -delete &>> /tmp/cron_tmpclean.log ",
-    content => '00 05 * * * root find /tmp/systemd-private-*-ncbo_cron.service-*/tmp/* -mtime +1 -delete',
+    content => '00 05 * * * root find /tmp/systemd-private-*-ncbo_cron.service-*/tmp/* ! -name ruby-uuid -mtime +1 -delete',
     owner   => 'root',
     group   => 'root',
     mode    => '0644',
