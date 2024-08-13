@@ -103,8 +103,12 @@ class ontoportal::appliance (
       'PrintMotd'            => 'yes',
       'SyslogFacility'       => 'AUTHPRIV',
       'PermitEmptyPasswords' => 'no',
+      'Ciphers'              => 'aes128-ctr,aes192-ctr,aes256-ctr,aes128-gcm@openssh.com,aes256-gcm@openssh.com,chacha20-poly1305@openssh.com',
+      'KExAlgorithms'        => 'diffie-hellman-group14-sha1,diffie-hellman-group-exchange-sha256,ecdh-sha2-nistp256,ecdh-sha2-nistp384,ecdh-sha2-nistp521,curve25519-sha256@libssh.org,gss-group14-sha1-',
+      'GSSAPIKExAlgorithms'  => 'gss-group14-sha1-',
     },
   }
+
   ##http://lonesysadmin.net/2013/12/06/use-elevator-noop-for-linux-virtual-machines/
   ##https://kb.vmware.com/s/article/2011861
   #if $is_virtual {
