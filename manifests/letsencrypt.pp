@@ -14,7 +14,6 @@ define ontoportal::letsencrypt(
     ensure_packages ('certbot-nginx')
   }
   include letsencrypt
-  include letsencrypt
   #class { 'letsencrypt': }
   $_domains = concat ( [$domain], $san )
   letsencrypt::certonly { $domain:
