@@ -13,6 +13,10 @@ class ontoportal::appliance::ui (
 ) {
   include ontoportal::firewall::http
 
+  # letsencrypt
+
+  ensure_packages (['certbot', 'python2-certbot-apache'])
+
   # Create Directories (including parent directories)
   # file { [$app_root_dir,
   #   ]:
