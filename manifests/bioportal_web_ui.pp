@@ -38,7 +38,9 @@ class ontoportal::bioportal_web_ui (
     require epel
   }
 
-  class { 'nodejs': }
+  class { 'nodejs':
+    repo_url_suffix => '16.x',
+  }
   -> class { 'yarn': }
 
   class { 'apache':
