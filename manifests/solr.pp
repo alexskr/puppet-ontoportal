@@ -14,7 +14,7 @@
 # Works with 8.2.0 +
 
 class ontoportal::solr (
-  String $version                  = '8.11.2',
+  String $version                  = '8.11.3',
   String $solr_host                = '0.0.0.0',
   Stdlib::Absolutepath $var_dir    = '/srv/ontoportal/data/solr',
   Stdlib::Absolutepath $data_dir   = "${var_dir}/data",
