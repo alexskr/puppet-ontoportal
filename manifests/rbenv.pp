@@ -1,9 +1,10 @@
 class ontoportal::rbenv(
   String $ruby_version     = $title,
-  String $rubygems_version = '3.4.18',
-  String $bundler_version  = '2.4',
+  String $rubygems_version = '3.4.21',
+  String $bundler_version  = '2.4.21',
   Boolean $global          = true
 ) {
+  Exec { timeout => 1800 }
   class { 'rbenv': }
   -> rbenv::plugin { ['rbenv/ruby-build']: latest => true }
   -> rbenv::build { $ruby_version:
