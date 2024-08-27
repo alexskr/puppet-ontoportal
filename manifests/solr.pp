@@ -28,20 +28,10 @@ class ontoportal::solr (
   String $newrelic_agent_version   = '7.11.1',
   Boolean $manage_firewall         = true,
   Boolean $manage_java             = true,
-  Enum['8', '11'] $java_version    = '11',
+  String $java_package = 'openjdk-11-jdk-headless',
   $fwsrc                           = [],
 ) {
-
-  case $java_version {
-    '11': {
-      $java_package = 'java-11-openjdk-headless'
-      $java_home    = '/usr/lib/jvm/jre-11'
-    }
-    '8': {
-      $java_package =  'java-1.8.0-openjdk-headless'
-      $java_home =  '/usr/lib/jvm/jre-1.8.0'
-    }
-  }
+  $java_home = '/usr/lib/jvm/java-11-openjdk-amd64'
 
   if $manage_java {
     Class { 'java':
@@ -88,7 +78,7 @@ class ontoportal::solr (
     solr_home         => $data_dir,
     java_home         => $java_home,
     var_dir           => $var_dir,
-    solr_environment  => [ $_solr_environment ],
+    solr_environment  => [$_solr_environment],
     required_packages => ['unzip','lsof'], #ugly hack to prevent this module from installing java 8
   }
 
@@ -96,7 +86,7 @@ class ontoportal::solr (
     "${data_dir}/prop_search_core1/", "${data_dir}/prop_search_core1/data",
     "${data_dir}/prop_search_core2/", "${data_dir}/prop_search_core2/data",
     "${data_dir}/term_search_core1/", "${data_dir}/term_search_core1/data",
-    "${data_dir}/term_search_core2/", "${data_dir}/term_search_core2/data"
+    "${data_dir}/term_search_core2/", "${data_dir}/term_search_core2/data",
   ]
   $core_prop_files = [
     "${data_dir}/term_search_core1/core.properties",
@@ -122,7 +112,7 @@ class ontoportal::solr (
     require => Class['solr'],
     # subscribe => Class['solr'],
   }
-  -> file { [ "${config_dir}/property_search", "${config_dir}/term_search" ]:
+  -> file { ["${config_dir}/property_search", "${config_dir}/term_search"]:
     ensure  => directory,
     owner   => $deployeruser,
     group   => $deployergroup,
@@ -156,15 +146,15 @@ class ontoportal::solr (
       group  => $group,
   }
 
-  exec {'initial config property_search':
+  exec { 'initial config property_search':
     cwd     => $config_dir,
     command => "/bin/cp -avr /opt/solr/server/solr/configsets/_default/conf/* ${config_dir}/property_search && \
                 /bin/chown -R ${deployeruser}:${deployergroup} ${config_dir}/property_search",
     unless  => "/usr/bin/test -f ${config_dir}/property_search/managed-schema",
     timeout => 600,
-    require => [ File[$config_dir], Class['solr'],]
+    require => [File[$config_dir], Class['solr']],
   }
-  exec {'initial config term_search':
+  exec { 'initial config term_search':
     cwd     => $config_dir,
     command => "/bin/cp -avr /opt/solr/server/solr/configsets/_default/conf/* ${config_dir}/term_search && \
                 /bin/chown -R ${deployeruser}:${deployergroup} ${config_dir}/term_search",
@@ -174,7 +164,7 @@ class ontoportal::solr (
   }
 
   #v8.2 has global maxboolClauses setting which sets global max. We have to set it here in addition to solrconfig.xml
-  augeas{ 'solr_max_boolean_classes.xml':
+  augeas { 'solr_max_boolean_classes.xml':
     incl    => "${data_dir}/solr.xml",
     lens    => 'Xml.lns',
     context => "/files/${data_dir}/solr.xml/solr",

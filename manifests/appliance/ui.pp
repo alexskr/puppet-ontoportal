@@ -5,7 +5,7 @@ class ontoportal::appliance::ui (
   $owner = $ontoportal::appliance::owner,
   $group = $ontoportal::appliance::group,
   $appliance_version = $ontoportal::appliance::appliance_version,
-  $ruby_version = $ontoportal::appliance::ruby_version,
+  $ruby_version = $ontoportal::appliance::ui_ruby_version,
   $data_dir = $ontoportal::appliance::data_dir,
   $app_root_dir  = $ontoportal::appliance::app_root_dir,
   $ui_domain_name = $ontoportal::appliance::ui_domain_name,
@@ -13,9 +13,9 @@ class ontoportal::appliance::ui (
 ) {
   include ontoportal::firewall::http
 
-  # letsencrypt
-
-  ensure_packages (['certbot', 'python2-certbot-apache'])
+  # letsencrypt  
+  # FIXME: why are we not using wrapper class for it?
+  ensure_packages (['certbot', 'python3-certbot-apache'])
 
   # Create Directories (including parent directories)
   # file { [$app_root_dir,
@@ -26,7 +26,7 @@ class ontoportal::appliance::ui (
   #     mode   => '0775',
   #}
   # chaining api and UI,  sometimes passenger yum repo confuses nginx installation.
-  Class['epel'] -> Class['ontoportal::bioportal_web_ui']
+  #  Class['epel'] -> Class['ontoportal::bioportal_web_ui']
 
   class { 'ontoportal::bioportal_web_ui':
     environment       => 'appliance',
@@ -41,11 +41,7 @@ class ontoportal::appliance::ui (
     slices            => [],
     enable_ssl        => true,
     # self-generated certificats
-    ssl_cert          => '/etc/pki/tls/certs/localhost.crt',
-    ssl_key           => '/etc/pki/tls/private/localhost.key',
-    ssl_chain         => '/etc/pki/ca-trust/extracted/openssl/ca-bundle.trust.crt',
-    install_ruby      => false,
-    require           => Class['ontoportal::rbenv'],
+    install_ruby      => true,
   }
 
   # mod_proxy is needed for reverse proxy of biomixer and annotator plus proxy

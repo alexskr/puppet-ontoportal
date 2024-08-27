@@ -1,13 +1,12 @@
 ########################################################################
 
-# this is more of a role than a profile.
 class ontoportal::appliance::api (
-  $api_port = $ontoportal::appliance::api_port,
-  $api_ssl_port = $ontoportal::appliance::api_ssl_port,
+  $api_port = ontoportal::appliance::api_port,
+  $api_ssl_port = $ontoportal::appliance::ssl_api_port,
   $owner = $ontoportal::appliance::owner,
   $group = $ontoportal::appliance::group,
   $appliance_version = $ontoportal::appliance::appliance_version,
-  $ruby_version = $ontoportal::appliance::ruby_version,
+  $ruby_version = $ontoportal::appliance::api_ruby_version,
   $data_dir = $ontoportal::appliance::data_dir,
   $app_root_dir  = $ontoportal::appliance::app_root_dir,
   $ui_domain_name = $ontoportal::appliance::ui_domain_name,
@@ -34,46 +33,38 @@ class ontoportal::appliance::api (
     install_ruby => false,
     app_root     => "${app_root_dir}/ncbo_cron",
     repo_path    => "${data_dir}/repository",
-    require      => Class['epel'],
   }
-
-  #chaining classes so that java alternatives is set properly after 1 run.
-  # chaining api and UI,  sometimes passenger yum repo confuses nginx installation.
-  Class['epel'] -> Class['ontoportal::ontologies_api']
 
   class { 'ontoportal::ontologies_api':
     environment         => 'appliance',
     port                => $api_port,
     ssl_port            => $api_ssl_port,
     domain              => $api_domain_name,
-    owner               => 'ontoportal',
-    group               => 'ontoportal',
+    ruby_version        => $ruby_version,
+    owner               => $owner,
+    group               => $group,
     enable_ssl          => true, #not nessesary for appliance
     enable_letsencrypt  => false, #not nessesary for appliance
     enable_nginx_status => false, #not requried for appliance
     manage_nginx_repo   => false,
     manage_firewall     => false,
-    install_ruby        => false,
+    install_ruby        => true,
     install_java        => false,
-    ssl_cert            => '/etc/pki/tls/certs/localhost.crt',
-    ssl_chain           => '/etc/pki/tls/certs/localhost.crt',
-    ssl_key             => '/etc/pki/tls/private/localhost.key',
     app_root            => "${app_root_dir}/ontologies_api",
-    require             => Class['epel'],
   }
 
-  class { 'ontoportal::redis_goo_cache':
+  class { 'ontoportal::redis::goo_cache':
     maxmemory       => '512M',
     manage_firewall => false,
     manage_newrelic => false,
   }
-  class { 'ontoportal::redis_persistent':
+  class { 'ontoportal::redis::persistent':
     manage_firewall => false,
     workdir         => "${data_dir}/redis_persistent",
     manage_newrelic => false,
     require         => File[$data_dir],
   }
-  class { 'ontoportal::redis_http_cache':
+  class { 'ontoportal::redis::http_cache':
     maxmemory       => '512M',
     manage_firewall => false,
     manage_newrelic => false,

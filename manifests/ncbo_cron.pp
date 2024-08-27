@@ -24,6 +24,7 @@ class ontoportal::ncbo_cron(
   $logrotate_days       = 356,
   Boolean $install_java = true,
   Boolean $install_ruby = true,
+  String $java_version  = 'openjdk-11-jre-headless',
 ) {
   require ontoportal::params
   case $facts['os']['family'] {
@@ -32,7 +33,11 @@ class ontoportal::ncbo_cron(
       require librdf::raptor2
     }
     'Debian': {
-      ensure_packages(['raptor2-utils'])
+      ensure_packages([
+        'raptor2-utils',
+        'libxml2-dev',
+        'libwww-perl', # required for 4s-dump to work
+      ])
     }
   }
 
@@ -42,11 +47,6 @@ class ontoportal::ncbo_cron(
     }
   }
 
-  ensure_packages( [
-      $ontoportal::params::pkg_mariadb_dev,
-      $ontoportal::params::pkg_libxml2_dev,
-      $ontoportal::params::pkg_libwww_perl,
-  ])
 
   file { [$app_root]:
     ensure  => directory,
@@ -89,24 +89,13 @@ class ontoportal::ncbo_cron(
   #java required for owlapi/owl validation
   if $install_java {
     class { 'java':
-      package => "${ontoportal::params::java_package}-headless",
-    }
-    #   alternatives { 'java':
-    #  path    => "${ontoportal::params::java_package}.x86_64",
-    #  require => Package["${ontoportal::params::java_package}-headless"],
-    #}
-    #temporary work around
-    #https://github.com/voxpupuli/puppet-alternatives/issues/71
-    #this will obviously wouldn't work for other than version 11 of java
-    #->exec{"make_default_${java_version}":
-    ->exec { "make_default_${ontoportal::params::java_package}":
-      command => "/usr/sbin/alternatives  --set java ${ontoportal::params::java_package}.x86_64",
-      unless  => '/usr/bin/readlink /etc/alternatives/java | /usr/bin/grep -q /java-11-openjdk-11' #
+      package => $java_version,
     }
   }
 
   systemd::tmpfile { 'ncbo_cron.conf':
-    content => "d /var/run/ncbo_cron 0755 ${owner} ${group}",
+    ensure  => present,
+    content => "d /var/run/ncbo_cron 0755 $owner $group"
   }
 
   systemd::unit_file { 'ncbo_cron.service':

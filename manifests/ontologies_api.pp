@@ -24,13 +24,13 @@ class ontoportal::ontologies_api (
   Stdlib::Host $domain             = 'data.ontoportal.org',
   $slices = ['bis', 'ctsa', 'biblio', 'psi', 'cabig', 'cgiar', 'obo-foundry', 'umls', 'who-fic'], #used as SAN for letsencrypt, obo_foundary is problematic since it has underscore;
   Boolean $ssl_redirect            = false,
-  Boolean $enable_letsencrypt      = true,
+  Boolean $enable_letsencrypt      = false,
   Stdlib::Absolutepath $ssl_cert   = "/etc/letsencrypt/live/${domain}/cert.pem",
   Stdlib::Absolutepath $ssl_key    = "/etc/letsencrypt/live/${domain}/privkey.pem",
   Stdlib::Absolutepath $ssl_chain  = "/etc/letsencrypt/live/${domain}/fullchain.pem",
   Stdlib::Absolutepath $bundle_bin = '/usr/local/rbenv/shims/bundle',
   Boolean $install_java            = true,
-  String $java_version             = 'java-11-openjdk-headless',
+  String $java_version             = 'openjdk-11-jre-headless',
   Stdlib::Port $port               = 80,
   Stdlib::Port $ssl_port           = 443,
   Boolean $enable_ssl              = true, #not nessesary for appliance
@@ -42,18 +42,21 @@ class ontoportal::ontologies_api (
 ) inherits ontoportal::params {
   case $facts['os']['family'] {
     'RedHat': {
-      if ($facts['os']['release']['major'] != '7') {
-        fail ('this module doesnt support this platform')
-      }
+      selinux::boolean { 'httpd_can_sendmail': }
+      selinux::boolean { 'httpd_can_network_connect': }
       require epel
+      ensure_packages ([
+        'libxml2-devel', # for xml gem
+      ])
       Class[epel] -> Class[nginx]
     }
     'Debian': {
-      #not yet fully supported
+      $passenger_root = undef
+      ensure_packages ([
+        'libxml2-dev'
+      ])
     }
   }
-  selinux::boolean { 'httpd_can_sendmail': }
-  selinux::boolean { 'httpd_can_network_connect': }
 
   if $manage_firewall {
     firewall_multi { "34 allow inbound API on port ${port}":
@@ -62,10 +65,6 @@ class ontoportal::ontologies_api (
       action => accept,
     }
   }
-  ensure_packages( [
-      $ontoportal::params::pkg_mariadb_dev,
-      $ontoportal::params::pkg_libxml2_dev,
-  ])
 
   # ontoportal/deployer user needs sudo to restart unicorn on deployments
   sudo::conf { 'unicorn':
@@ -87,26 +86,14 @@ class ontoportal::ontologies_api (
     mode   => '0775',
   }
 
-  # FIXME move autofs to role
-  if $environment != 'appliance' {
-    file { ["${data_dir}/repository" ]:
-      ensure => link,
-      target => "/srv/ncbo/share/env/${environment}/repository",
-    }
-    require profile::autofs::ncbo_share
-  }
 
   #required for building some of the ruby gems
   if $install_ruby {
-    class { 'ontoportal::rbenv':
-      ruby_version => $ruby_version,
-    }
+    ontoportal::rbenv{ $ruby_version: }
   }
 
   class { 'nginx':
     manage_repo              => $manage_nginx_repo,
-    # https://forge.puppet.com/modules/puppet/nginx#idempotency-with-nginx-1150-and-later
-    nginx_version            => '1.20',
     passenger_package_ensure => false,
     client_max_body_size     => '1G',
     http_tcp_nopush          => 'on',
@@ -150,13 +137,20 @@ class ontoportal::ontologies_api (
   # enable TLS if letsencrypt cert is generated.  FIXME This requires second puppet run so this should be refactored
   if $enable_letsencrypt {
     $_enable_ssl = $domain in $facts['letsencrypt_directory']
+    $_ssl_cert  = $ssl_cert
+    $_ssl_chain = $ssl_chain
+    $_ssl_key   = $ssl_key
   } else {
     $_enable_ssl = $enable_ssl
+    # set to a locally generated cert so that nginx doesn't fall over before we get our cert
+    $_ssl_cert  = '/etc/ssl/certs/ssl-cert-snakeoil.pem'
+    $_ssl_chain = '/etc/ssl/certs/ca-certificates.crt'
+    $_ssl_key   = '/etc/ssl/private/ssl-cert-snakeoil.key'
   }
 
   nginx::resource::server { 'ontologies_api':
     ensure           => present,
-    server_name      => [$domain, "*.${domain}", $facts['networking']['fqdn']],
+    server_name      => [$domain, "*.${domain}"],
     listen_port      => $port,
     ssl_port         => $ssl_port,
     listen_options   => 'default_server',
@@ -164,10 +158,9 @@ class ontoportal::ontologies_api (
     index_files      => [],
     ssl              => $_enable_ssl,
     ssl_redirect     => $ssl_redirect,
-    ssl_cert         => $ssl_chain,
-    ssl_key          => $ssl_key,
+    ssl_cert         => $_ssl_cert,
+    ssl_key          => $_ssl_key,
     proxy_set_header => ['X-Forwarded-For $proxy_add_x_forwarded_for', 'Host $http_host', 'X-Real-IP $remote_addr'],
-    # ssl_session_cache => 'shared:SSL:10m',
   }
 
   if $enable_nginx_status {
@@ -215,16 +208,5 @@ class ontoportal::ontologies_api (
     su           => true,
     su_user      => $owner,
     su_group     => $group,
-  }
-
-  # FIXME move log shippment to role
-  if $environment == 'production' {
-    file { ['/etc/cron.d/ontologies_api_copy_logs']:
-      content => "00 01 * * * ${owner} mv ${app_root}/shared/log/production.*.gz /srv/ncbo/share/env/production/logs/rest/${trusted['hostname']}/pending > /dev/null 2>&1
-00 02 * * * ${owner} find ${app_root}/shared/log/*.gz -mtime +7 -delete > /dev/null 2>&1/n",
-      owner   => 'root',
-      group   => 'root',
-      mode    => '0644',
-    }
   }
 }

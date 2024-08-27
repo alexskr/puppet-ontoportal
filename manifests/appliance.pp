@@ -2,21 +2,19 @@
 
 # this is more of a role than a profile.
 class ontoportal::appliance (
-  Boolean $ui = true,
-  Boolean $api = true,
-  $owner = 'ontoportal',
-  $group = 'ontoportal',
-  String $appliance_version = '3.2',
-  String $ruby_version = '2.7.8',
-  $data_dir = '/srv/ontoportal/data',
-  $app_root_dir  = '/srv/ontoportal',
-  $ui_domain_name = 'appliance.ontoportal.org',
-  $api_domain_name = 'data.appliance.ontoportal.org',
-  Integer $api_port = 8080,
-  Integer $api_ssl_port = 8443,
-  Boolean $manage_selinux = true,
+  Boolean $ui                        = true,
+  Boolean $api                       = true,
+  String $owner                      = 'ontoportal',
+  String $group                      = 'ontoportal',
+  String $appliance_version          = '4.0-alpha',
+  Stdlib::Absolutepath $data_dir     = '/srv/ontoportal/data',
+  Stdlib::Absolutepath $app_root_dir = '/srv/ontoportal',
+  Stdlib::Port $api_port             = 8080,
+  Stdlib::Port $api_tls_port         = 8443,
+  Boolean $manage_selinux            = false,
+  String api_ruby_version            = '2.7.8',
+  String ui_ruby_version             = '3.0.6',
 ) {
-
   include ontoportal::firewall
   include ontoportal::firewall::ssh
 
@@ -26,6 +24,7 @@ class ontoportal::appliance (
       require epel
       Class[epel] -> Class[nginx]
       $packages = [
+        'cloud-utils-growpart', #automatically grows partition on first deployment
         'git-lfs',
         'bind-utils',
         'bzip2',
@@ -80,7 +79,9 @@ class ontoportal::appliance (
 
   ensure_packages( $packages )
 
-  include nscd
+  #FIXME add DNS caching
+  #  include nscd
+  #nsswitch::hosts: ['files resolve [!UNAVAIL=return] dns']
 
   kernel_parameter { 'net.ifnames':
     value => '0',
@@ -103,9 +104,7 @@ class ontoportal::appliance (
       'PrintMotd'            => 'yes',
       'SyslogFacility'       => 'AUTHPRIV',
       'PermitEmptyPasswords' => 'no',
-      'Ciphers'              => 'aes128-ctr,aes192-ctr,aes256-ctr,aes128-gcm@openssh.com,aes256-gcm@openssh.com,chacha20-poly1305@openssh.com',
-      'KExAlgorithms'        => 'diffie-hellman-group14-sha1,diffie-hellman-group-exchange-sha256,ecdh-sha2-nistp256,ecdh-sha2-nistp384,ecdh-sha2-nistp521,curve25519-sha256@libssh.org,gss-group14-sha1-',
-      'GSSAPIKExAlgorithms'  => 'gss-group14-sha1-',
+      'Ciphers'              => 'aes128-ctr,aes192-ctr,aes256-ctr,aes128-gcm@openssh.com,aes256-gcm@openssh.com',
     },
   }
 
@@ -119,48 +118,13 @@ class ontoportal::appliance (
   #  sysctl {'vm.swappiness': value => '0' }
   #}
 
-  case $facts['virtual'] {
-    'zvmware': {
-      include openvmtools
-    }
-    'z': { #disabled this for the time being; it is currently handled with scripts during packaging 
-      package { 'cloud-init':
-        ensure => installed,
-      }
-      -> package { 'cloud-init-vmware-guestinfo':
-        ensure => installed,
-        source => 'https://github.com/vmware/cloud-init-vmware-guestinfo/releases/download/v1.1.0/cloud-init-vmware-guestinfo-1.1.0-1.el7.noarch.rpm',
-      }
-      package { 'cloud-utils-growpart': #automatically grows partition on first deployment
-        ensure => installed,
-      }
-    }
-  }
-
-  # odd depenency cyle workaround - rbenv installs git and git class gets included somewere
-  class { 'git':
-    package_manage => false,
-  }
+  include git
 
   ensure_packages([
       'linux-firmware',
     ],
     { ensure => absent },
   )
-
-  ##aws cloud-init
-## ensure_packages (['cloud-init'])
-##   file { '/etc/cloud/cloud.cfg.d/08_ontoportal.cfg':
-##     ensure  => present,
-##     owner   => root,
-##     group   => root,
-##     mode    => '0644',
-##     content => '#cloud-config
-## runcmd:
-##  - ${app_root_dir}/virtual_appliance/utils/bootstrap/firstboot.rb
-##  - rm /root/firstboot
-## ',
-##   }
 
   user { 'ontoportal':
     ensure     => 'present',
@@ -193,7 +157,7 @@ class ontoportal::appliance (
   }
 
   # ssh user
-  user { 'centos':
+  user { 'admin':
     ensure     => 'present',
     comment    => 'OntoPortal SysAdmin User',
     managehome => true,
@@ -210,14 +174,9 @@ class ontoportal::appliance (
       mode   => '0775',
   }
 
-  class { 'ontoportal::rbenv':
-    ruby_version => $ruby_version,
-  }
-
   # tomcat is installed on both ui for biomixer and api for annotator+
   class { 'ontoportal::tomcat':
     port   => 8082,
-    #####    before => User['ontoportal'],
   }
 
   if $ui {
@@ -228,11 +187,6 @@ class ontoportal::appliance (
     contain ontoportal::appliance::api
   }
 
-  if $manage_selinux {
-    class { 'selinux':
-      mode => disabled,
-    }
-  }
 
   $sudo_string = 'Cmnd_Alias ONTOPORTAL = /usr/local/bin/oprestart, /usr/local/bin/opstop, /usr/local/bin/opstart, /usr/local/bin/opstatus, /usr/local/bin/opclearcaches
 Cmnd_Alias NGINX = /bin/systemctl start nginx, /bin/systemctl stop nginx, /bin/systemctl restart nginx
@@ -253,29 +207,22 @@ ontoportal ALL = NOPASSWD: ONTOPORTAL, NGINX, NCBO_CRON, SOLR, FSHTTPD, FSBACKEN
     # config_file_replace => false,
   }
 
-  # required for vagrant builds; it is purged
+  # required for vagrant builds but is removed in the cleanup/packaging step
   sudo::conf { 'vagrant':
-    content => '%vagrant ALL=(ALL) NOPASSWD: ALL',
+    content => 'vagrant ALL=(ALL) NOPASSWD: ALL',
   }
 
-  sudo::conf { 'centos':
-    content => '%centos ALL=(ALL) NOPASSWD: ALL',
+  sudo::conf { 'admin':
+    content => 'admin ALL=(ALL) NOPASSWD: ALL',
   }
 
   sudo::conf { 'appliance':
     content => $sudo_string,
   }
 
-  $issue_string='\S
-Kernel \r on an \m
-OntoPortal Appliance IP: \4
-'
-
-  file { '/etc/issue':
-    owner   => root,
-    group   => root,
-    mode    => '0644',
-    content => $issue_string,
+  file_line { 'add appliance ip to /etc/issue':
+    path => '/etc/issue',
+    line => 'OntoPortal Appliance IP: \4',
   }
 
   #utils
@@ -325,7 +272,6 @@ OntoPortal Appliance IP: \4
     Description=Initial Ontoportal Appliance reconfiguration which runs only on first boot.
     After=network-online.target cloud-final.service 4s-boss.service 4s-backend.service 4s-httpd.service redis-server-goo.service redis-server-http.service redis-server-persistent.service nginx.service
     ConditionPathExists=${app_root_dir}/firstboot
-    #Before=getty@tty6.service
 
     [Service]
     Type=oneshot

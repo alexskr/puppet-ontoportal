@@ -1,5 +1,5 @@
 #
-# Class: ncbo::profile::bioportal_web_ui
+# Class: bioportal_web_ui
 #
 # Description: This class manages bioportal_Web_ui, apache/passenger/rails setup for bioportal web ui
 #
@@ -14,7 +14,7 @@
 
 class ontoportal::bioportal_web_ui (
   Enum['staging', 'production', 'appliance', 'development'] $environment = 'staging',
-  $ruby_version               = '2.7.8',
+  $ruby_version               = '3.0.6',
   String $owner               = 'ontoportal',
   String $group               = 'ontoportal',
   Boolean $enable_mod_status  = true,
@@ -34,14 +34,29 @@ class ontoportal::bioportal_web_ui (
 ) inherits ontoportal::params {
   include ontoportal::firewall::http
 
-  if $facts['os']['family'] == 'RedHat' {
-    require epel
+  case $facts['os']['family'] {
+    'RedHat': {
+      require epel
+      $passenger_root = '/usr/share/ruby/vendor_ruby/phusion_passenger/locations.ini' #EL7 EPEL based mod_passenger config
+      ensure_packages ([
+          'mariadb-devel',
+          'passenger-devel'  #required for compiling passenger_native_support.so for the current Ruby interpreter
+      ])
+    }
+    'Debian': {
+      $passenger_root = undef
+      ensure_packages ([
+        'libmariadb-dev',
+        # 'passenger-dev',
+      ])
+
+    }
   }
 
   class { 'nodejs':
-    repo_url_suffix => '16.x',
+    repo_version => '16',
   }
-  -> class { 'yarn': }
+  class { 'yarn': }
 
   class { 'apache':
     default_vhost    => false,
@@ -63,7 +78,7 @@ class ontoportal::bioportal_web_ui (
   class { 'apache::mod::expires': }
   class { 'apache::mod::dir': }
   class { 'apache::mod::passenger':
-    passenger_root                          => '/usr/share/ruby/vendor_ruby/phusion_passenger/locations.ini', #EL7 EPEL based mod_passenger config
+    passenger_root                          => $passenger_root,
     passenger_default_ruby                  => "/usr/local/rbenv/versions/${ruby_version}/bin/ruby",
     #  passenger_high_performance           => 'on',  #breaks mod_rewrite and PassengerEnabled off for widgets
     passenger_max_pool_size                 => 30,
@@ -81,28 +96,26 @@ class ontoportal::bioportal_web_ui (
     }
   }
 
-  # in place to mitigate https://tickets.puppetlabs.com/browse/MODULES-5612
-  file {
-    ['/etc/httpd/conf.modules.d/00-mpm.conf',
-      '/etc/httpd/conf.modules.d/00-ssl.conf',
-      '/etc/httpd/conf.modules.d/00-systemd.conf',
-      '/etc/httpd/conf.modules.d/10-passenger.conf']:
-        mode    => '0644',
-        owner   => root,
-        group   => root,
-        content => '# placeholder in place to mitigate https://tickets.puppetlabs.com/browse/MODULES-5612\n',
-  }
-
-  if $install_ruby {
-    class { 'ontoportal::rbenv':
-      ruby_version => $ruby_version,
+  if $facts['os']['family'] == 'RedHat' {
+    # in place to mitigate https://tickets.puppetlabs.com/browse/MODULES-5612
+    file {
+      ['/etc/httpd/conf.modules.d/00-mpm.conf',
+        '/etc/httpd/conf.modules.d/00-ssl.conf',
+        '/etc/httpd/conf.modules.d/00-systemd.conf',
+        '/etc/httpd/conf.modules.d/10-passenger.conf']:
+          mode    => '0644',
+          owner   => root,
+          group   => root,
+          content => '# placeholder in place to mitigate https://tickets.puppetlabs.com/browse/MODULES-5612\n',
     }
   }
 
-  ensure_packages ([
-      $ontoportal::params::pkg_mariadb_dev,
-      'passenger-devel',  #required for compiling passenger_native_support.so for the current Ruby interpreter
-  ])
+  if $install_ruby {
+    ontoportal::rbenv { $ruby_version:
+      global => false,
+    }
+  }
+
   # redirect for maintenance
   $maintanence_rewrite = {
     'rewrite_cond' => ['%{DOCUMENT_ROOT}/system/maintenance.html -f',
@@ -111,14 +124,26 @@ class ontoportal::bioportal_web_ui (
     'rewrite_rule' => '^.*$ /system/maintenance.html [L]' }
   $slices_fqdn = $slices.map |$item| { "${item}.${domain}" }
 
-  if $enable_ssl {
-    if $manage_letsencrypt {
-      ontoportal::letsencrypt { $domain:
-        domain => $domain,
-        san    => $slices_fqdn,
-      }
+  if $manage_letsencrypt {
+    ontoportal::letsencrypt { $domain:
+      domain => $domain,
+      san    => $slices_fqdn,
     }
+  }
 
+  # enable TLS if letsencrypt cert is generated.  FIXME This requires second puppet run so this should be refactored
+  if $manage_letsencrypt and $domain in $facts['letsencrypt_directory']{
+    $_ssl_cert  = $ssl_cert 
+    $_ssl_chain = $ssl_chain
+    $_ssl_key   = $ssl_key
+  } else {
+    # set to a locally generated cert so that apache doesn't fall over before we get our cert
+    $_ssl_cert  = '/etc/ssl/certs/ssl-cert-snakeoil.pem'
+    $_ssl_chain = '/etc/ssl/certs/ca-certificates.crt'
+    $_ssl_key   = '/etc/ssl/private/ssl-cert-snakeoil.key'
+  }
+
+  if $enable_ssl {
     if $ssl_redirect {
       $_rewrites = {
         'rewrite_cond' => '%{REQUEST_URI} !(\.well-known/acme-challenge|/server-status)',
@@ -156,9 +181,9 @@ class ontoportal::bioportal_web_ui (
     default_vhost         => true,
     docroot               => $_docroot,
     manage_docroot        => false,
-    aliases               => [ $alias_le ],
-    directories           => [ $directories_le ],
-    rewrites              => [ $maintanence_rewrite, $_rewrites ],
+    aliases               => [$alias_le],
+    directories           => [$directories_le],
+    rewrites              => [$maintanence_rewrite, $_rewrites],
     custom_fragment       => template($_custom_fragment),
     passenger_app_env     => $environment,
     passenger_ruby        => "/usr/local/rbenv/versions/${ruby_version}/bin/ruby",
@@ -174,9 +199,9 @@ class ontoportal::bioportal_web_ui (
       default_vhost         => true,
       ssl                   => true,
       passenger_ruby        => "/usr/local/rbenv/versions/${ruby_version}/bin/ruby",
-      ssl_cert              => $ssl_cert,
-      ssl_key               => $ssl_key,
-      ssl_chain             => $ssl_chain,
+      ssl_cert              => $_ssl_cert,
+      ssl_key               => $_ssl_key,
+      ssl_chain             => $_ssl_chain,
       docroot               => $_docroot,
       manage_docroot        => false,
       passenger_app_env     => $environment,
@@ -195,7 +220,6 @@ class ontoportal::bioportal_web_ui (
       group  => $group,
       mode   => '0770';
   }
-
   #Create rails directory structure
   -> file {
     default:

@@ -1,45 +1,21 @@
+
 # a wrapper class for pupppetlabs/tomcat module.
 # installs tomcat9 from source
 class ontoportal::tomcat(
-  String $version                     = '9.0.86',
+  String $version                     = '9.0.89',
   Stdlib::Port $port                  = 8080,
   Stdlib::HTTPUrl $source_url = "https://archive.apache.org/dist/tomcat/tomcat-9/v${version}/bin/apache-tomcat-${version}.tar.gz",
   Boolean $webadmin                   = false,
   Optional[String] $java_opts         = undef,
+  Boolean $manage_newrelic            = false,
   Optional[String] $java_opts_xmx     = undef,
   Integer $logrotate_days             = 14,
   Optional[String] $admin_user        = undef,
   Optional[String] $admin_user_passwd = undef,
-  Stdlib::Absolutepath $catalina_base = '/srv/tomcat',
-  Stdlib::Absolutepath $catalina_home = "/opt/tomcat-${version}",
-  Boolean $suppress_catalina_out      = true,
+  $catalina_base                      = '/srv/tomcat',
+  $catalina_home                      = "/opt/tomcat-${version}",
+  Boolean $suppress_catalina_out      = false,
 ) {
-  # we need epel for tomcat-native package
-  require epel
-  $_systemd_unit_file_content = @("EOT")
-    [Unit]
-    Description=Apache Tomcat Web Application Container
-    After=syslog.target network.target
-
-    [Service]
-    Type=forking
-    Environment=JAVA_HOME=/usr/lib/jvm/jre
-    Environment=CATALINA_PID=${catalina_home}/temp/tomcat.pid
-    Environment=CATALINA_HOME=${$catalina_home}
-    Environment=CATALINA_BASE=${catalina_base}
-    User=tomcat
-    SuccessExitStatus=143
-
-    ExecStart=${catalina_home}/bin/startup.sh
-    ExecStop=${catalina_home}/bin/shutdown.sh
-
-    RestartSec=10
-    Restart=always
-
-    [Install]
-    WantedBy=multi-user.target
-    | EOT
-
   file { ['/var/log/tomcat', '/var/lib/tomcat', '/var/lib/tomcat/webapps']:
     ensure => directory,
     owner  => 'tomcat',
@@ -51,11 +27,11 @@ class ontoportal::tomcat(
     if ($admin_user_passwd == undef) and ($admin_user != undef) {
       fail( 'Tomcat admin user requires password to be set.' )
     }
-    if $admin_user_passwd and $admin_user {
+    if $admin_user_passwd and $admin_user  {
       tomcat::config::server::tomcat_users { 'admin-script':
         catalina_base => $catalina_base,
         element       => 'role',
-        require       => Class['tomcat'],
+        require       => Class['tomcat']
       }
       -> tomcat::config::server::tomcat_users { 'manager-script':
         catalina_base => $catalina_base,
@@ -71,10 +47,6 @@ class ontoportal::tomcat(
     }
   }
 
-  # depenencies
-  $packages = ['tomcat-native']
-  ensure_packages([$packages])
-
   class { 'tomcat': }
   tomcat::install { $catalina_home:
     source_url => $source_url,
@@ -86,23 +58,12 @@ class ontoportal::tomcat(
     manage_service => false,
   }
   -> file { "${catalina_base}/logs":
-    ensure  => link,
-    force   => true,  #overwrite existing directory added by install
-    target  => '/var/log/tomcat',
+    ensure => link,
+    force  => true,  #overwrite existing directory added by install
+    target => '/var/log/tomcat',
     require => File['/var/log/tomcat'],
   }
-  # -> file { ["$catalina_base/webapps/examples","$catalina_base/webapps/docs"]:
-  #   ensure  => absent,
-  #   force  => true,
-  # }
-  -> systemd::unit_file { 'tomcat.service':
-    content => $_systemd_unit_file_content,
-    require => Class['tomcat'],
-  }
-  ~> service { 'tomcat':
-    ensure => 'running',
-    enable => true,
-  }
+
   tomcat::config::server::connector { 'tomcat-http':
     catalina_base         => $catalina_base,
     port                  => $port,
@@ -118,10 +79,17 @@ class ontoportal::tomcat(
   }
   if $java_opts_xmx {
     tomcat::setenv::entry { 'XMX':
-      catalina_home => $catalina_home,
-      addto         => 'JAVA_OPTS',
-      value         => "-Xmx${java_opts_xmx}",
-      quote_char    => "'",
+      #       catalina_base  => $catalina_base,
+      addto      => 'JAVA_OPTS',
+      value      => "-Xmx${java_opts_xmx}",
+      quote_char => "'",
+    }
+  }
+  if $manage_newrelic {
+    tomcat::setenv::entry { 'NEWRELIC':
+      addto      => 'JAVA_OPTS',
+      value      => '-javaagent:/opt/newrelic/newrelic.jar',
+      quote_char => "'",
     }
   }
   tomcat::setenv::entry { 'STANDARD':
@@ -137,6 +105,34 @@ class ontoportal::tomcat(
       value         => '/dev/null',
       doexport      => false,
     }
+  }
+  $_systemd_unit_file_content = @("EOT")
+    [Unit]
+    Description=Apache Tomcat Web Application Container
+    After=syslog.target network.target
+
+    [Service]
+    Type=forking
+    User=tomcat
+    Group=tomcat
+#    Environment=JAVA_HOME=${java_home} #FIXME
+    Environment=CATALINA_PID=${catalina_home}/temp/tomcat.pid
+    Environment=CATALINA_HOME=${$catalina_home}
+    Environment=CATALINA_BASE=${catalina_base}
+    User=tomcat
+
+    ExecStart=${catalina_home}/bin/startup.sh
+    ExecStop=${catalina_home}/bin/shutdown.sh
+
+    [Install]
+    WantedBy=multi-user.target
+    | EOT
+  systemd::unit_file { 'tomcat.service':
+    content => $_systemd_unit_file_content,
+  }
+  ~> service { 'tomcat':
+    enable => true,
+    ensure => 'running',
   }
 
   logrotate::rule { 'tomcat':
