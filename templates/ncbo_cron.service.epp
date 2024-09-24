@@ -12,8 +12,6 @@ After=network.target
 ExecStart=<%= $app_root %>/bin/ncbo_cron --daemon -u <%= $user %> -G <%= $group %> -P /var/run/ncbo_cron/ncbo_cron.pid
 ExecStop=/usr/bin/kill -QUIT $MAINPID
 ExecReload=/usr/bin/kill -USR2 $MAINPID
-StandardOutput=syslog
-StandardError=syslog
 SyslogIdentifier=ncbo_cron
 User=<%= $user %>
 Group=<%= $group %>

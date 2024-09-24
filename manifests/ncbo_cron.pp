@@ -41,12 +41,11 @@ class ontoportal::ncbo_cron(
     }
   }
 
-  if $install_ruby {
+  if $install_ruby and !defined(Ontoportal::Rbenv[$ruby_version]) {
     class { 'ontoportal::rbenv':
       ruby_version => $ruby_version,
     }
   }
-
 
   file { [$app_root]:
     ensure  => directory,
@@ -56,30 +55,17 @@ class ontoportal::ncbo_cron(
     require => Service['ncbo_cron'],
   }
 
-  if $environment == 'appliance' {
-    file { [$repo_path]:
-      ensure => directory,
-      owner  => $owner,
-      group  => $group ,
-      mode   => '0775',
-    }
+  file { [$repo_path]:
+     ensure => directory,
+     owner  => $owner,
+     group  => $group ,
+     mode   => '0775',
   }
-  else {
-    file { ['/srv/ncbo/repository']:
-      ensure => link,
-      target => "/srv/ncbo/share/env/${environment}/repository",
-    }
-  }
-
-  #required for building some of the ruby gems
-  # include ncbo::builddeps
 
   #/tmp clean up script - Deletes files that ncbo_cron is too lazy to delete
   # we are using systemd private tmp
   file { ['/etc/cron.d/ncbo_cron_tmpclean']:
     ensure  => present,
-    #content => "00 05 * * * root find /tmp -mtime +0 -type f -user ${owner} -delete > /dev/null 2>&1 ",
-    #content => "00 05 * * * root find /tmp/systemd-private-*-ncbo_cron.service-*/tmp/* -mtime +1 -delete &>> /tmp/cron_tmpclean.log ",
     content => '00 05 * * * root find /tmp/systemd-private-*-ncbo_cron.service-*/tmp/* ! -name ruby-uuid -mtime +1 -delete',
     owner   => 'root',
     group   => 'root',

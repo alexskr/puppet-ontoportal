@@ -14,8 +14,6 @@ After=network.target
 ExecStart=<%= $bundle_bin %> exec unicorn -c config/unicorn.rb -E <%= $environment %>
 ExecStop=/usr/bin/kill -QUIT $MAINPID
 ExecReload=/usr/bin/kill -USR2 $MAINPID
-StandardOutput=syslog
-StandardError=syslog
 SyslogIdentifier=unicorn
 User=<%= $user %>
 Group=<%= $group %>

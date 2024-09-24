@@ -14,7 +14,7 @@ class ontoportal::appliance (
   String $api_domain_name            = 'data.appliance.ontoportal.org',
   Boolean $manage_selinux            = false,
   String $api_ruby_version           = '3.0.6',
-  String $ui_ruby_version            = '3.0.6',
+  String $ui_ruby_version            =  $api_ruby_version,
   String $goo_cache_maxmemory        = '512M',
   String $http_cache_maxmemory       = '512M',
 ) {
@@ -94,7 +94,7 @@ class ontoportal::appliance (
     content => "OntoPortal Appliance v${appliance_version}\n",
   }
 
-  # need to disable root ssh for AWS ami
+  #disable ssh root logins for AWS ami
   class { 'ssh::server':
     options => {
       'HostKey'              => [
@@ -139,6 +139,13 @@ class ontoportal::appliance (
     password   => '!!',
     shell      => '/bin/bash',
     uid        => '888',
+  }
+ 
+  # OntoPortal system administator
+  user { 'opadmin':
+    ensure     => 'present',
+    comment    => 'OntoPortal SysAdmin',
+    managehome => true,
   }
 
   file { '/home/ontoportal/.gemrc':
@@ -206,17 +213,12 @@ ontoportal ALL = NOPASSWD: ONTOPORTAL, NGINX, NCBO_CRON, SOLR, FSHTTPD, FSBACKEN
 
   #do not purge sudo config files.  packer build relies on them.
   class { 'sudo':
-    # purge               => false,
+    purge  => false,
     # config_file_replace => false,
   }
 
-  # required for vagrant builds but is removed in the cleanup/packaging step
-  sudo::conf { 'vagrant':
-    content => 'vagrant ALL=(ALL) NOPASSWD: ALL',
-  }
-
-  sudo::conf { 'admin':
-    content => 'admin ALL=(ALL) NOPASSWD: ALL',
+  sudo::conf { 'opadmin':
+    content => 'opadmin ALL=(ALL) NOPASSWD: ALL',
   }
 
   sudo::conf { 'appliance':

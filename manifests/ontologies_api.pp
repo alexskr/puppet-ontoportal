@@ -15,14 +15,14 @@ class ontoportal::ontologies_api (
 
   Enum['staging', 'production', 'appliance', 'development'] $environment = 'staging',
   Boolean $install_ruby            = true,
-  String $ruby_version             = '2.7.8',
+  String $ruby_version             = '3.0.6',
   String $owner                    = 'ontoportal',
   String $group                    = 'ontoportal',
   Integer $logrotate_nginx         = 180,
   Integer $logrotate_unicorn       = 180,
   Stdlib::Absolutepath $app_root   = '/srv/ontoportal/ontologies_api',
-  Stdlib::Host $domain             = 'data.ontoportal.org',
-  $slices = ['bis', 'ctsa', 'biblio', 'psi', 'cabig', 'cgiar', 'obo-foundry', 'umls', 'who-fic'], #used as SAN for letsencrypt, obo_foundary is problematic since it has underscore;
+  Stdlib::Host $domain             = 'data.demo.ontoportal.org',
+  $slices = [], #used as SAN for letsencrypt
   Boolean $ssl_redirect            = false,
   Boolean $enable_letsencrypt      = false,
   Stdlib::Absolutepath $ssl_cert   = "/etc/letsencrypt/live/${domain}/cert.pem",
@@ -33,8 +33,8 @@ class ontoportal::ontologies_api (
   String $java_version             = 'openjdk-11-jre-headless',
   Stdlib::Port $port               = 80,
   Stdlib::Port $ssl_port           = 443,
-  Boolean $enable_ssl              = true, #not nessesary for appliance
-  Boolean $enable_nginx_status     = true, #not requried for appliance
+  Boolean $enable_ssl              = true,
+  Boolean $enable_nginx_status     = false,
   Boolean $manage_nginx_repo       = true,
   Boolean $manage_firewall         = true,
   Stdlib::Absolutepath $data_dir   = '/srv/ontoportal',
@@ -88,7 +88,7 @@ class ontoportal::ontologies_api (
 
 
   #required for building some of the ruby gems
-  if $install_ruby {
+  if $install_ruby and !defined(Ontoportal::Rbenv[$ruby_version]) {
     ontoportal::rbenv{ $ruby_version: }
   }
 
