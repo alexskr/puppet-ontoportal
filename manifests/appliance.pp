@@ -13,7 +13,7 @@ class ontoportal::appliance (
   Stdlib::Port $api_tls_port         = 8443,
   String $api_domain_name            = 'data.appliance.ontoportal.org',
   Boolean $manage_selinux            = false,
-  String $api_ruby_version           = '2.7.8',
+  String $api_ruby_version           = '3.0.6',
   String $ui_ruby_version            = '3.0.6',
   String $goo_cache_maxmemory        = '512M',
   String $http_cache_maxmemory       = '512M',
