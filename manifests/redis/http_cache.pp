@@ -1,15 +1,15 @@
 #this profile class is written for arioch/puppet-redis which is a bit quircky
 
-class ontoportal::redis_http_cache (
+class ontoportal::redis::http_cache(
   Optional[String] $maxmemory = undef,
   Stdlib::Port $port          = 6380,
-  Boolean $manage_firewall    = true,
-  Boolean $manage_newrelic    = true,
-  $fwsrc = undef,
+  Boolean $manage_firewall    = false,
+  Boolean $manage_newrelic    = false,
+  $fwsrc                      = undef,
 ) {
   $redis_role = 'http_cache'
 
-  include ontoportal::redis_base
+  include ontoportal::redis
 
   if $maxmemory {
     $_maxmemory = $maxmemory
@@ -48,9 +48,17 @@ class ontoportal::redis_http_cache (
   }
 
   if $manage_newrelic {
-    class { 'ontoportal::newrelic::redis':
+    class { 'profile::ncbo::newrelic::redis':
       redis_role => "redis_${redis_role}",
       port       => $port,
+    }
+  }
+
+  if $facts['os']['family'] == 'RedHat' {
+    selinux::port { "allow-redis-${port}":
+      seltype  => 'redis_port_t',
+      port     => $port,
+      protocol => 'tcp',
     }
   }
 }

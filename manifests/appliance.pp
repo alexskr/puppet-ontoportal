@@ -6,14 +6,17 @@ class ontoportal::appliance (
   Boolean $api                       = true,
   String $owner                      = 'ontoportal',
   String $group                      = 'ontoportal',
-  String $appliance_version          = '4.0-alpha',
+  String $appliance_version          = '4.0',
   Stdlib::Absolutepath $data_dir     = '/srv/ontoportal/data',
   Stdlib::Absolutepath $app_root_dir = '/srv/ontoportal',
   Stdlib::Port $api_port             = 8080,
   Stdlib::Port $api_tls_port         = 8443,
+  String $api_domain_name            = 'data.appliance.ontoportal.org',
   Boolean $manage_selinux            = false,
-  String api_ruby_version            = '2.7.8',
-  String ui_ruby_version             = '3.0.6',
+  String $api_ruby_version           = '2.7.8',
+  String $ui_ruby_version            = '3.0.6',
+  String $goo_cache_maxmemory        = '512M',
+  String $http_cache_maxmemory       = '512M',
 ) {
   include ontoportal::firewall
   include ontoportal::firewall::ssh

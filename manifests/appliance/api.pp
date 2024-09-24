@@ -1,8 +1,10 @@
 ########################################################################
 
 class ontoportal::appliance::api (
-  $api_port = ontoportal::appliance::api_port,
-  $api_ssl_port = $ontoportal::appliance::ssl_api_port,
+  $goo_cache_maxmemory = $ontoportal::appliance::goo_cache_maxmemory,
+  $http_cache_maxmemory = $ontoportal::appliance::http_cache_maxmemory,
+  $api_port = $ontoportal::appliance::api_port,
+  $api_tls_port = $ontoportal::appliance::api_tls_port,
   $owner = $ontoportal::appliance::owner,
   $group = $ontoportal::appliance::group,
   $appliance_version = $ontoportal::appliance::appliance_version,
@@ -38,7 +40,7 @@ class ontoportal::appliance::api (
   class { 'ontoportal::ontologies_api':
     environment         => 'appliance',
     port                => $api_port,
-    ssl_port            => $api_ssl_port,
+    ssl_port            => $api_tls_port,
     domain              => $api_domain_name,
     ruby_version        => $ruby_version,
     owner               => $owner,
@@ -54,7 +56,7 @@ class ontoportal::appliance::api (
   }
 
   class { 'ontoportal::redis::goo_cache':
-    maxmemory       => '512M',
+    maxmemory       => $goo_cache_maxmemory,
     manage_firewall => false,
     manage_newrelic => false,
   }
@@ -65,7 +67,7 @@ class ontoportal::appliance::api (
     require         => File[$data_dir],
   }
   class { 'ontoportal::redis::http_cache':
-    maxmemory       => '512M',
+    maxmemory       => $http_cache_maxmemory,
     manage_firewall => false,
     manage_newrelic => false,
   }
