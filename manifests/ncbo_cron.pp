@@ -16,7 +16,7 @@ class ontoportal::ncbo_cron(
   $environment          = 'staging',
   $owner                = 'ncbo-deployer',
   $group                = 'ncbo-deployer',
-  $app_root             = '/srv/ontoportal/ncbo_cron',
+  $app_dir             = '/opt/ontoportal/ncbo_cron',
   $service              = 'running',
   $repo_path            = '/srv/ncbo/repository',
   $reposymlink          = undef, #"/srv/ncbo/share/env/${ncbo_environment}/repository",
@@ -47,7 +47,7 @@ class ontoportal::ncbo_cron(
     }
   }
 
-  file { [$app_root]:
+  file { [$app_dir]:
     ensure  => directory,
     owner   => $owner,
     group   => $group ,
@@ -86,7 +86,7 @@ class ontoportal::ncbo_cron(
 
   systemd::unit_file { 'ncbo_cron.service':
     content => epp('ontoportal/ncbo_cron.service.epp', {
-        app_root => $app_root,
+        app_dir => $app_dir,
         user     => $owner,
         group    => $group,
         }),
@@ -99,7 +99,7 @@ class ontoportal::ncbo_cron(
   }
 
   logrotate::rule { 'ncbo_cron':
-    path         => "${app_root}/logs/scheduler*.log",
+    path         => "${app_dir}/logs/scheduler*.log",
     rotate       => $logrotate_days,
     minsize      => '10M',
     rotate_every => 'day',

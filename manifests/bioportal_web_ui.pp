@@ -20,7 +20,7 @@ class ontoportal::bioportal_web_ui (
   Boolean $enable_mod_status  = true,
   $logrotate_httpd            = 400,
   $logrotate_rails            = 14,
-  $railsdir                   = '/srv/ontoportal/bioportal_web_ui',
+  $railsdir                   = '/opt/ontoportal/bioportal_web_ui',
   $domain                     = 'stage.bioontology.org',
   $slices = ['www', 'bis', 'ctsa', 'biblio', 'psi', 'cabig', 'cgiar', 'obo-foundry', 'umls', 'who-fic'], #used as SAN for letsencrypt
   $ssl_cert                   = "/etc/letsencrypt/live/${domain}/cert.pem",
@@ -66,7 +66,7 @@ class ontoportal::bioportal_web_ui (
     server_signature => 'Off',
     default_mods     => false,
     mpm_module       => 'worker',
-    require          => File['/srv/ontoportal'],
+    require          => File["$railsdir"],
   }
 
   apache::listen { '80': }
@@ -112,7 +112,7 @@ class ontoportal::bioportal_web_ui (
 
   if $install_ruby {
     ontoportal::rbenv { $ruby_version:
-      global => false,
+      global => true,
     }
   }
 
@@ -209,12 +209,7 @@ class ontoportal::bioportal_web_ui (
       custom_fragment       => template($_custom_fragment),
     }
   }
-  file { '/srv/rails':
-    ensure => directory,
-    owner  => 'root',
-    group  => 'root',
-    mode   => '0755';
-    '/var/log/rails':
+  file { '/var/log/rails':
       ensure => directory,
       owner  => $owner,
       group  => $group,

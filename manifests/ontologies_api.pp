@@ -20,7 +20,7 @@ class ontoportal::ontologies_api (
   String $group                    = 'ontoportal',
   Integer $logrotate_nginx         = 180,
   Integer $logrotate_unicorn       = 180,
-  Stdlib::Absolutepath $app_root   = '/srv/ontoportal/ontologies_api',
+  Stdlib::Absolutepath $app_root   = '/opt/ontoportal/ontologies_api',
   Stdlib::Host $domain             = 'data.demo.ontoportal.org',
   $slices = [], #used as SAN for letsencrypt
   Boolean $ssl_redirect            = false,

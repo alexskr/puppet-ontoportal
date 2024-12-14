@@ -1,7 +1,7 @@
 <%- |
   String $user,
   String $group,
-  Stdlib::Absolutepath $app_root,
+  Stdlib::Absolutepath $app_dir,
 | -%>
 
 [Unit]
