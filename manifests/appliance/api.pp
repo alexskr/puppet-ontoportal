@@ -33,7 +33,7 @@ class ontoportal::appliance::api (
     owner        => $owner,
     group        => $group,
     install_ruby => false,
-    app_dir      => "${app_root_dir}/ncbo_cron",
+    app_path     => "${app_root_dir}/ncbo_cron",
     repo_path    => "${data_dir}/repository",
   }
 

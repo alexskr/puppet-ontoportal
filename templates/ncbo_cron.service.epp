@@ -1,7 +1,7 @@
 <%- |
   String $user,
   String $group,
-  Stdlib::Absolutepath $app_dir,
+  Stdlib::Absolutepath $app_path,
 | -%>
 
 [Unit]
@@ -9,7 +9,7 @@ Description=ncbo_cron service
 After=network.target
 
 [Service]
-ExecStart=<%= $app_root %>/bin/ncbo_cron --daemon -u <%= $user %> -G <%= $group %> -P /var/run/ncbo_cron/ncbo_cron.pid
+ExecStart=<%= $app_path %>/bin/ncbo_cron --daemon -u <%= $user %> -G <%= $group %> -P /var/run/ncbo_cron/ncbo_cron.pid
 ExecStop=/usr/bin/kill -QUIT $MAINPID
 ExecReload=/usr/bin/kill -USR2 $MAINPID
 SyslogIdentifier=ncbo_cron
@@ -19,7 +19,7 @@ PIDFile=/var/run/ncbo_cron/ncbo_cron.pid
 PermissionsStartOnly=false
 TimeoutStopSec=62
 PrivateTmp=yes
-WorkingDirectory=<%= $app_root %>
+WorkingDirectory=<%= $app_path %>
 Environment="PATH=/usr/local/rbenv/shims:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
 [Install]

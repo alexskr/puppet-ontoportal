@@ -11,9 +11,10 @@ class ontoportal::appliance (
   Stdlib::Absolutepath $app_root_dir = '/opt/ontoportal',
   Stdlib::Port $api_port             = 8080,
   Stdlib::Port $api_tls_port         = 8443,
+  String $ui_domain_name             = 'appliance.ontoportal.org',
   String $api_domain_name            = 'data.appliance.ontoportal.org',
   Boolean $manage_selinux            = false,
-  String $api_ruby_version           = '3.0.7',
+  String $api_ruby_version           = '3.0.6',
   String $ui_ruby_version            =  $api_ruby_version,
   String $goo_cache_maxmemory        = '512M',
   String $http_cache_maxmemory       = '512M',
@@ -145,6 +146,7 @@ class ontoportal::appliance (
   user { 'opadmin':
     ensure     => 'present',
     comment    => 'OntoPortal SysAdmin',
+    shell      => '/bin/bash',
     managehome => true,
   }
 
