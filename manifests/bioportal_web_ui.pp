@@ -21,8 +21,8 @@ class ontoportal::bioportal_web_ui (
   $logrotate_httpd            = 400,
   $logrotate_rails            = 14,
   $railsdir                   = '/opt/ontoportal/bioportal_web_ui',
-  $domain                     = 'stage.bioontology.org',
-  $slices = ['www', 'bis', 'ctsa', 'biblio', 'psi', 'cabig', 'cgiar', 'obo-foundry', 'umls', 'who-fic'], #used as SAN for letsencrypt
+  $domain                     = 'appliance.ontoportal.org',
+  $slices                     = [], #used as SAN for letsencrypt
   $ssl_cert                   = "/etc/letsencrypt/live/${domain}/cert.pem",
   $ssl_key                    = "/etc/letsencrypt/live/${domain}/privkey.pem",
   $ssl_chain                  = "/etc/letsencrypt/live/${domain}/chain.pem",
@@ -81,7 +81,7 @@ class ontoportal::bioportal_web_ui (
     passenger_root                          => $passenger_root,
     passenger_default_ruby                  => "/usr/local/rbenv/versions/${ruby_version}/bin/ruby",
     #  passenger_high_performance           => 'on',  #breaks mod_rewrite and PassengerEnabled off for widgets
-    passenger_max_pool_size                 => 30,
+    passenger_max_pool_size                 => 100,
     passenger_max_requests                  => 1000,
     passenger_allow_encoded_slashes         => 'on',
     # security related:
@@ -122,6 +122,7 @@ class ontoportal::bioportal_web_ui (
       '%{SCRIPT_FILENAME} !/system/maintenance.html',
       '%{REQUEST_URI} !/system/maintenance.html$'],
     'rewrite_rule' => '^.*$ /system/maintenance.html [L]' }
+  
   $slices_fqdn = $slices.map |$item| { "${item}.${domain}" }
 
   if $manage_letsencrypt {
@@ -167,6 +168,7 @@ class ontoportal::bioportal_web_ui (
     $directories_le = undef
     $_rewrites = {}
   }
+
   #site
   $_docroot = "${railsdir}/current/public"
   if $environment == 'appliance' {
@@ -174,15 +176,13 @@ class ontoportal::bioportal_web_ui (
   } else {
     $_custom_fragment = 'ontoportal/bioportal_web_ui-httpd-fragment.erb'
   }
-  apache::vhost { "${domain}_non-tls":
+  apache::vhost { "ontoportal_ui_non-tls":
     servername            => $domain,
-    serveraliases         => $slices_fqdn,
+    serveraliases         => $slices_fqdn + '*',
     port                  => 80,
     default_vhost         => true,
     docroot               => $_docroot,
     manage_docroot        => false,
-    aliases               => [$alias_le],
-    directories           => [$directories_le],
     rewrites              => [$maintanence_rewrite, $_rewrites],
     custom_fragment       => template($_custom_fragment),
     passenger_app_env     => $environment,
@@ -192,7 +192,7 @@ class ontoportal::bioportal_web_ui (
 
   if $enable_ssl {
     apache::listen { '443': }
-    apache::vhost { "${domain}_tls":
+    apache::vhost { "ontoportal_ui_tls":
       servername            => $domain,
       serveraliases         => $slices_fqdn,
       port                  => 443,
