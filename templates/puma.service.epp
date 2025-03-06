@@ -1,0 +1,62 @@
+ <%- |
+ String $user,
+ String $group,
+ String $rails_env,
+ Optional[String] $environment,
+ Optional[Integer] $puma_threads,
+ Optional[Integer] $puma_workers,
+ Stdlib::Absolutepath $app_root,
+ Stdlib::Absolutepath $bundle_bin,
+ String $name
+| -%>
+
+
+[Unit]
+Description=Puma HTTP Server for <%= $name %>
+After=network.target
+
+# Uncomment for socket activation (see below)
+#Requires=puma.socket
+#
+[Service]
+# # Puma supports systemd's `Type=notify` and watchdog service
+# # monitoring, as of Puma 5.1 or later.
+# # On earlier versions of Puma or JRuby, change this to `Type=simple` and remove
+# # the `WatchdogSec` line.
+#Type=notify
+Type=simple
+#
+# # If your Puma process locks up, systemd's watchdog will restart it within seconds.
+WatchdogSec=10
+#
+# # Preferably configure a non-privileged user
+User=<%= $user %>
+Group=<%= $group %>
+TimeoutStopSec=62
+#PrivateTmp=yes
+#
+# # The path to your application code root directory.
+# # Also replace the "<YOUR_APP_PATH>" placeholders below with this path.
+WorkingDirectory=<%= $app_root %>/current
+#
+# # Helpful for debugging socket activation, etc.
+# # Environment=PUMA_DEBUG=1
+Environment="RAILS_ENV=<%= $rails_env %>"
+<% if $puma_workers { -%>
+Environment="WEB_CONCURRENCY=<%= $puma_workers %>"
+<% } -%>
+<% if $puma_threads { -%>
+Environment="RAILS_MAX_THREAD=<%= $puma_threads %>"
+<% } -%>
+#
+ExecStart=<%= $bundle_bin %> exec puma -C <%= $app_root %>/current/config/puma.rb
+#ExecReload=<%= $bundle_bin %> exec pumactl -S <%= $app_root %>/shared/tmp/pids/puma.state
+# do hot restart
+ExecReload="/bin/kill -USR2 $MAINPID"
+#
+RestartSec=1
+Restart=on-failure
+#
+SyslogIdentifier=puma-<%= $name %>
+[Install]
+WantedBy=multi-user.target
