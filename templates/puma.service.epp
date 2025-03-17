@@ -25,20 +25,20 @@ After=network.target
 # # the `WatchdogSec` line.
 #Type=notify
 Type=simple
-#
+
 # # If your Puma process locks up, systemd's watchdog will restart it within seconds.
-WatchdogSec=10
-#
+WatchdogSec=60
+
 # # Preferably configure a non-privileged user
 User=<%= $user %>
 Group=<%= $group %>
 TimeoutStopSec=62
-#PrivateTmp=yes
-#
+PrivateTmp=yes
+
 # # The path to your application code root directory.
 # # Also replace the "<YOUR_APP_PATH>" placeholders below with this path.
 WorkingDirectory=<%= $app_root %>/current
-#
+
 # # Helpful for debugging socket activation, etc.
 # # Environment=PUMA_DEBUG=1
 Environment="RAILS_ENV=<%= $rails_env %>"
@@ -48,15 +48,15 @@ Environment="WEB_CONCURRENCY=<%= $puma_workers %>"
 <% if $puma_threads { -%>
 Environment="RAILS_MAX_THREAD=<%= $puma_threads %>"
 <% } -%>
-#
+
 ExecStart=<%= $bundle_bin %> exec puma -C <%= $app_root %>/current/config/puma.rb
 #ExecReload=<%= $bundle_bin %> exec pumactl -S <%= $app_root %>/shared/tmp/pids/puma.state
 # do hot restart
 ExecReload="/bin/kill -USR2 $MAINPID"
-#
+
 RestartSec=1
 Restart=on-failure
-#
+
 SyslogIdentifier=puma-<%= $name %>
 [Install]
 WantedBy=multi-user.target
