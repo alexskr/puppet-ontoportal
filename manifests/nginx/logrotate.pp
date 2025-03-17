@@ -1,10 +1,10 @@
 class ontoportal::nginx::logrotate (
-  Integer $rotate_days = 356,
+  Integer $logrotate_days = 356,
 ){
 
   logrotate::rule { 'nginx':
     path          => ["/var/log/nginx/*.log"],
-    rotate        => $rotate_days,
+    rotate        => $logrotate_days,
     rotate_every  => 'day',
     compress      => true,             # Enable compression
     delaycompress => true,             # Delay compression for the most recent rotated log
