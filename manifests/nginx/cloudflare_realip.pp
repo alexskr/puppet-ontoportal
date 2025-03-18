@@ -10,8 +10,8 @@ class ontoportal::nginx::cloudflare_realip (
     owner   => 'root',
     group   => 'root',
     mode    => '0644',
-    content => 'puppet:///modules/ontoportal/nginx-cloudflare_real_ip.conf',
-    replace =>  false, #rely on the cronjob to get latest updates"
+    source  => 'puppet:///modules/ontoportal/nginx-cloudflare_real_ip.conf',
+    replace => false, #rely on the cronjob to get latest updates"
   }
 
   file { '/usr/local/bin/nginx-cloudflare_real_ip.sh':
