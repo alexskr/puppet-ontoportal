@@ -2,7 +2,7 @@
 # a wrapper class for pupppetlabs/tomcat module.
 # installs tomcat9 from source
 class ontoportal::tomcat(
-  String $version                     = '9.0.89',
+  String $version                     = '9.0.102',
   Stdlib::Port $port                  = 8080,
   Stdlib::HTTPUrl $source_url = "https://archive.apache.org/dist/tomcat/tomcat-9/v${version}/bin/apache-tomcat-${version}.tar.gz",
   Boolean $webadmin                   = false,
@@ -115,7 +115,6 @@ class ontoportal::tomcat(
     Type=forking
     User=tomcat
     Group=tomcat
-#    Environment=JAVA_HOME=${java_home} #FIXME
     Environment=CATALINA_PID=${catalina_home}/temp/tomcat.pid
     Environment=CATALINA_HOME=${$catalina_home}
     Environment=CATALINA_BASE=${catalina_base}
