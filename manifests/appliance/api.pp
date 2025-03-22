@@ -4,7 +4,7 @@ class ontoportal::appliance::api (
   $goo_cache_maxmemory = $ontoportal::appliance::goo_cache_maxmemory,
   $http_cache_maxmemory = $ontoportal::appliance::http_cache_maxmemory,
   $api_port = $ontoportal::appliance::api_port,
-  $api_tls_port = $ontoportal::appliance::api_tls_port,
+  $api_port_https = $ontoportal::appliance::api_port_https,
   $owner = $ontoportal::appliance::owner,
   $group = $ontoportal::appliance::group,
   $appliance_version = $ontoportal::appliance::appliance_version,
@@ -13,10 +13,12 @@ class ontoportal::appliance::api (
   $app_root_dir  = $ontoportal::appliance::app_root_dir,
   $ui_domain_name = $ontoportal::appliance::ui_domain_name,
   $api_domain_name = $ontoportal::appliance::api_domain_name,
+  $enable_4store = false,
 ) {
   include ontoportal::firewall::api
 
   User <| title == ontoportal |> { groups +> 'tomcat' }
+
   # Create Directories (including parent directories)
   file { [$data_dir,
       "${data_dir}/reports", "${data_dir}/mgrep",
@@ -40,12 +42,11 @@ class ontoportal::appliance::api (
   class { 'ontoportal::ontologies_api':
     environment         => 'appliance',
     port                => $api_port,
-    ssl_port            => $api_tls_port,
+    port_https          => $api_port_https,
     domain              => $api_domain_name,
     ruby_version        => $ruby_version,
     owner               => $owner,
     group               => $group,
-    enable_ssl          => true, #not nessesary for appliance
     enable_letsencrypt  => false, #not nessesary for appliance
     enable_nginx_status => false, #not requried for appliance
     manage_nginx_repo   => false,
@@ -80,18 +81,24 @@ class ontoportal::appliance::api (
     var_dir         => "${data_dir}/solr",
   }
 
-  class { 'fourstore':
-    data_dir => "${data_dir}/4store",
-    port     => 8081,
-    fsnodes  => '127.0.0.1',
+  if $enable_4store  {
+    class { 'fourstore':
+      data_dir => "${data_dir}/4store",
+      port     => 8081,
+      fsnodes  => '127.0.0.1',
+    }
+    fourstore::kb { 'ontologies_api': segments => 4 }
   }
-  fourstore::kb { 'ontologies_api': segments => 4 }
+
+  class { 'ontoportal::agraph':
+  }
 
   class { 'mgrep':
     mgrep_enable => true,
     group        => $group,
     dict_path    => "${data_dir}/mgrep/dictionary/dictionary.txt",
   }
+
   include mgrep::dictrefresh
 
   # annotator plus proxy reverse proxy
