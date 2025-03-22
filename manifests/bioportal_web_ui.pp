@@ -1,7 +1,7 @@
 #
-# Class: bioportal_web_ui
+# Class: ncbo::profile::bioportal_web_ui
 #
-# Description: This class manages bioportal_Web_ui, apache/passenger/rails setup for bioportal web ui
+# Description: This class manages bioportal_Web_ui, nginx/puma/rails setup for bioportal web ui
 #
 # Parameters:
 #
@@ -13,242 +13,199 @@
 #
 
 class ontoportal::bioportal_web_ui (
-  Enum['staging', 'production', 'appliance', 'development'] $environment = 'staging',
-  $ruby_version               = '3.0.6',
-  String $owner               = 'ontoportal',
-  String $group               = 'ontoportal',
-  Boolean $enable_mod_status  = true,
-  $logrotate_httpd            = 400,
-  $logrotate_rails            = 14,
-  $railsdir                   = '/opt/ontoportal/bioportal_web_ui',
-  $domain                     = 'appliance.ontoportal.org',
-  $slices                     = [], #used as SAN for letsencrypt
-  $ssl_cert                   = "/etc/letsencrypt/live/${domain}/cert.pem",
-  $ssl_key                    = "/etc/letsencrypt/live/${domain}/privkey.pem",
-  $ssl_chain                  = "/etc/letsencrypt/live/${domain}/chain.pem",
-  Boolean $enable_ssl         = true,
-  Boolean $manage_letsencrypt = false,
-  Boolean $ssl_redirect       = false,
-  Boolean $install_ruby       = true,
-  Boolean $canonical_redirect = true
-) inherits ontoportal::params {
-  include ontoportal::firewall::http
+  Enum[ 'staging', 'production', 'appliance', 'development'] $environment = 'staging',
+  String $ruby_version             = '3.1.6',
+  String $owner                    = 'ontoportal',
+  String $group                    = 'ncbo',
+  Boolean $enable_nginx_status     = true,
+  Integer $logrotate_nginx         = 400,
+  Integer $logrotate_rails         = 14,
+  Integer $puma_workers            = $facts['processors']['count']/2,
+  Stdlib::Absolutepath $app_root   = '/opt/ontoportal/bioportal_web_ui',
+  $domain                          = 'demo.ontoportal.org',
+  $slices = [ ], #used as SAN for letsencrypt
+  Stdlib::Absolutepath $ssl_cert   = "/etc/letsencrypt/live/${domain}/cert.pem",
+  Stdlib::Absolutepath $ssl_key    = "/etc/letsencrypt/live/${domain}/privkey.pem",
+  Stdlib::Absolutepath $ssl_fullchain = "/etc/letsencrypt/live/${domain}/fullchain.pem",
+  Boolean $enable_letsencrypt      = false,
+  Boolean $enable_https            = true,
+  Boolean $enable_https_redirect   = true,
+  Boolean $install_ruby            = true,
+  Stdlib::Port $port               = 80,
+  Boolean $manage_nginx_repo       = false,
+  Stdlib::Absolutepath $bundle_bin = '/usr/local/rbenv/shims/bundle',
+  ){
+  include profile::firewall::http
 
   case $facts['os']['family'] {
     'RedHat': {
       require epel
-      $passenger_root = '/usr/share/ruby/vendor_ruby/phusion_passenger/locations.ini' #EL7 EPEL based mod_passenger config
       ensure_packages ([
-          'mariadb-devel',
-          'passenger-devel'  #required for compiling passenger_native_support.so for the current Ruby interpreter
+        'mariadb-devel',
       ])
     }
     'Debian': {
-      $passenger_root = undef
       ensure_packages ([
-        'libmariadb-dev',
-        # 'passenger-dev',
+        'libmariadb-dev'
       ])
 
     }
   }
 
-  class { 'nodejs':
-    repo_version => '16',
-  }
-  class { 'yarn': }
-
-  class { 'apache':
-    default_vhost    => false,
-    manage_user      => false,
-    manage_group     => false,
-    trace_enable     => 'Off',
-    server_signature => 'Off',
-    default_mods     => false,
-    mpm_module       => 'worker',
-    require          => File["$railsdir"],
-  }
-
-  apache::listen { '80': }
-  class { 'apache::mod::headers': }
-  class { 'apache::mod::ssl': }
-  class { 'apache::mod::xsendfile': }
-  class { 'apache::mod::rewrite': }
-  class { 'apache::mod::deflate': }
-  class { 'apache::mod::expires': }
-  class { 'apache::mod::dir': }
-  class { 'apache::mod::passenger':
-    passenger_root                          => $passenger_root,
-    passenger_default_ruby                  => "/usr/local/rbenv/versions/${ruby_version}/bin/ruby",
-    #  passenger_high_performance           => 'on',  #breaks mod_rewrite and PassengerEnabled off for widgets
-    passenger_max_pool_size                 => 100,
-    passenger_max_requests                  => 1000,
-    passenger_allow_encoded_slashes         => 'on',
-    # security related:
-    passenger_show_version_in_header        => 'off',
-    passenger_disable_anonymous_telemetry   => true,
-    passenger_disable_security_update_check => 'on',
-  }
-
-  if $enable_mod_status {
-    class { 'apache::mod::status':
-      requires => ['ip 127.0.0.1 172.27.213.0/24 10.111.30.32'],
-    }
-  }
-
-  if $facts['os']['family'] == 'RedHat' {
-    # in place to mitigate https://tickets.puppetlabs.com/browse/MODULES-5612
-    file {
-      ['/etc/httpd/conf.modules.d/00-mpm.conf',
-        '/etc/httpd/conf.modules.d/00-ssl.conf',
-        '/etc/httpd/conf.modules.d/00-systemd.conf',
-        '/etc/httpd/conf.modules.d/10-passenger.conf']:
-          mode    => '0644',
-          owner   => root,
-          group   => root,
-          content => '# placeholder in place to mitigate https://tickets.puppetlabs.com/browse/MODULES-5612\n',
-    }
-  }
+  include ontoportal::yarn
 
   if $install_ruby {
     ontoportal::rbenv { $ruby_version:
-      global => true,
+      global =>  true,
+      # rubygems_version => '3.5.16',
+      # bundler_version  => '2.5.16',
     }
   }
 
-  # redirect for maintenance
-  $maintanence_rewrite = {
-    'rewrite_cond' => ['%{DOCUMENT_ROOT}/system/maintenance.html -f',
-      '%{SCRIPT_FILENAME} !/system/maintenance.html',
-      '%{REQUEST_URI} !/system/maintenance.html$'],
-    'rewrite_rule' => '^.*$ /system/maintenance.html [L]' }
-  
-  $slices_fqdn = $slices.map |$item| { "${item}.${domain}" }
-
-  if $manage_letsencrypt {
-    ontoportal::letsencrypt { $domain:
-      domain => $domain,
-      san    => $slices_fqdn,
-    }
-  }
-
-  # enable TLS if letsencrypt cert is generated.  FIXME This requires second puppet run so this should be refactored
-  if $manage_letsencrypt and $domain in $facts['letsencrypt_directory']{
-    $_ssl_cert  = $ssl_cert 
-    $_ssl_chain = $ssl_chain
-    $_ssl_key   = $ssl_key
-  } else {
-    # set to a locally generated cert so that apache doesn't fall over before we get our cert
-    $_ssl_cert  = '/etc/ssl/certs/ssl-cert-snakeoil.pem'
-    $_ssl_chain = '/etc/ssl/certs/ca-certificates.crt'
-    $_ssl_key   = '/etc/ssl/private/ssl-cert-snakeoil.key'
-  }
-
-  if $enable_ssl {
-    if $ssl_redirect {
-      $_rewrites = {
-        'rewrite_cond' => '%{REQUEST_URI} !(\.well-known/acme-challenge|/server-status)',
-        'rewrite_rule' => '^/?(.*) https://%{SERVER_NAME}/$1 [R,L]',
-      }
-    } else {
-      $_rewrites = $maintanence_rewrite
-    }
-    $alias_le = { alias => '/.well-known/acme-challenge/',
-                  path  => '/mnt/.letsencrypt/.well-known/acme-challenge/' }
-    $directories_le = {
-      path              => '/mnt/.letsencrypt/.well-known/acme-challenge',
-      require           => 'all granted',
-      #options          => 'MultiViews Indexes SymLinksIfOwnerMatch IncludesNoExec',
-      # Require method GET POST OPTIONS
-      passenger_enabled => 'off',
-      allow_override    => 'None',
-    }
-  } else {
-    $alias_le = undef
-    $directories_le = undef
-    $_rewrites = {}
-  }
-
-  #site
-  $_docroot = "${railsdir}/current/public"
-  if $environment == 'appliance' {
-    $_custom_fragment = 'ontoportal/bioportal_web_ui-httpd-appliance-fragment.erb'
-  } else {
-    $_custom_fragment = 'ontoportal/bioportal_web_ui-httpd-fragment.erb'
-  }
-  apache::vhost { "ontoportal_ui_non-tls":
-    servername            => $domain,
-    serveraliases         => $slices_fqdn + '*',
-    port                  => 80,
-    default_vhost         => true,
-    docroot               => $_docroot,
-    manage_docroot        => false,
-    rewrites              => [$maintanence_rewrite, $_rewrites],
-    custom_fragment       => template($_custom_fragment),
-    passenger_app_env     => $environment,
-    passenger_ruby        => "/usr/local/rbenv/versions/${ruby_version}/bin/ruby",
-    allow_encoded_slashes => 'nodecode',
-  }
-
-  if $enable_ssl {
-    apache::listen { '443': }
-    apache::vhost { "ontoportal_ui_tls":
-      servername            => $domain,
-      serveraliases         => $slices_fqdn,
-      port                  => 443,
-      default_vhost         => true,
-      ssl                   => true,
-      passenger_ruby        => "/usr/local/rbenv/versions/${ruby_version}/bin/ruby",
-      ssl_cert              => $_ssl_cert,
-      ssl_key               => $_ssl_key,
-      ssl_chain             => $_ssl_chain,
-      docroot               => $_docroot,
-      manage_docroot        => false,
-      passenger_app_env     => $environment,
-      allow_encoded_slashes => 'nodecode',
-      custom_fragment       => template($_custom_fragment),
-    }
-  }
-  file { '/var/log/rails':
+  file {  '/var/log/rails':
       ensure => directory,
       owner  => $owner,
       group  => $group,
       mode   => '0770';
   }
+
   #Create rails directory structure
-  -> file {
+  file {
     default:
       ensure => directory,
       owner  => $owner,
       group  => $group;
-    [$railsdir ,"${railsdir}/shared","${railsdir}/releases", "${railsdir}/shared/system"]:
+    [ $app_root ,"${app_root}/shared","${app_root}/releases", "${app_root}/shared/system", "${app_root}/shared/tmp","${app_root}/shared/tmp/sockets"]:
       mode   => '0775';
-    ["${railsdir}/shared/log"]:
+    [ "${app_root}/shared/log"]:
       ensure => 'link',
       target => '/var/log/rails',
       force  => yes;
   }
 
-  logrotate::rule { 'httpd':
-    path       => '/var/log/httpd/*log',
-    rotate     => $logrotate_httpd,
-    size       => '10M',
-    dateext    => true,
-    compress   => true,
-    missingok  => true,
-    postrotate => '/sbin/service httpd reload > /dev/null 2>/dev/null || true',
+  logrotate::rule { 'rails':
+    path          => '/var/log/rails/*.log',
+    rotate        => $logrotate_rails,
+    size          => '10M',
+    delaycompress => true,
+    copytruncate  => true,
+    ifempty       => false,
+    dateext       => true,
+    compress      => true,
+    missingok     => true,
+    # su          => true,
+    su_user       => $owner,
+    su_group      => $group,
+    postrotate    => "kill -HUP `cat ${app_root}/shared/tmp/pids/puma.pid`", #puma
   }
 
-  logrotate::rule { 'bioportal_web_ui_rails':
-    path       => '/var/log/rails/*.log',
-    rotate     => $logrotate_rails,
-    size       => '10M',
-    dateext    => true,
-    compress   => true,
-    missingok  => true,
-    su         => true,
-    su_user    => $owner,
-    su_group   => $group,
-    postrotate => '/sbin/service httpd reload > /dev/null 2>/dev/null || true',
+  $slices_fqdn = $slices.map |$item| { "${item}.${domain}" }
+  if $enable_https and $enable_letsencrypt {
+    ontoportal::letsencrypt { $domain:
+      cron_success_command => '/bin/systemctl reload nginx.service',
+      domain               => $domain,
+      san                  => $slices_fqdn,
+    }
   }
+
+  if $enable_letsencrypt {
+    # enable HTTPS if letsencrypt cert is generated
+    # FIXME This method requires two puppet agent runs; first to request Letsencrypt certs
+    # and second run to update cert paths.  Refactor is needed
+    $enable_ssl = $domain in $facts['letsencrypt_directory']  # check whether letsencrypt cert is in place
+    $_ssl_cert  = $ssl_fullchain #use full chain
+    $_ssl_key   = $ssl_key
+  } else {
+    $enable_ssl = $enable_https
+    # set to a self-signed cert so that nginx doesn't fall over before we get our cert
+    $_ssl_cert  = '/etc/ssl/certs/ssl-cert-snakeoil.pem'
+    $_ssl_key   = '/etc/ssl/private/ssl-cert-snakeoil.key'
+  }
+
+  $_enable_https_redirect = $enable_ssl and $enable_https_redirect
+
+  ontoportal::puma {'ui':
+    owner        => $owner,
+    group        => $group,
+    app_root     => $app_root,
+    bundle_bin   => $bundle_bin,
+    rails_env    => $environment,
+    # environment  => undef,
+    # puma_threads => undef,
+    puma_workers => $puma_workers,
+  }
+
+  include ontoportal::nginx
+
+  # static files / assets file are served by nginx
+  nginx::resource::location { '^~ /assets/':
+    ensure      => present,
+    ssl         => $enable_ssl,
+    ssl_only    => $_enable_https_redirect,
+    www_root    => "${app_root}/current/public",
+    gzip_static => 'on',
+    expires     =>  '1y',
+    server      => 'ontoportal_web_ui',
+    add_header  => {
+      'Cache-Control' => 'public', }, #response can be cached within proxies rails defaults to private
+  }
+
+  # Define the upstream Puma socket
+  nginx::resource::upstream { 'puma-bioportal_web_ui':
+    members => {
+      'ui' => {
+        server       => "unix:${app_root}/shared/tmp/sockets/puma.sock",
+        fail_timeout => '0s',
+    },}
+  }
+
+  $raw_append = @(NGINX_RAW_APPEND)
+    location @503 {
+      error_page 405 = /system/maintenance.html;
+      if (-f $document_root/system/maintenance.html) {
+        rewrite ^(.*)$ /system/maintenance.html break;
+      }
+      rewrite ^(.*)$ /503.html break;
+    }
+
+    if ($request_method !~ ^(GET|HEAD|PUT|PATCH|POST|DELETE|OPTIONS)$ ){
+      return 405;
+    }
+
+    if (-f $document_root/system/maintenance.html) {
+      return 503;
+    }
+  | NGINX_RAW_APPEND
+
+  nginx::resource::server { 'ontoportal_web_ui':
+    ensure         => present,
+    server_name    => [$domain, $::fqdn] + $slices_fqdn,
+    listen_port    => $port,
+    listen_options => 'default_server',
+    www_root       => "${app_root}/current/public",
+    try_files      => ['$uri/index.html', '$uri', '@puma-bioportal_web_ui'],
+    ssl_redirect   => $_enable_https_redirect,
+    index_files    => [],
+    ssl            => $enable_ssl,
+    ssl_cert       => $_ssl_cert,
+    ssl_key        => $_ssl_key,
+    raw_append     => $raw_append,
+  }
+
+  nginx::resource::location { '@puma-bioportal_web_ui':
+    ssl                => $enable_ssl,
+    ssl_only           => $_enable_https_redirect,
+    proxy_http_version => ' 1.1',
+    server             => 'ontoportal_web_ui',
+    proxy              => 'http://puma-bioportal_web_ui',
+    proxy_set_header   => [
+      'X-Forwarded-For $proxy_add_x_forwarded_for',
+      'Host $host',
+      'X-Forwarded-Proto https',
+      'X-Real-IP $remote_addr',
+    ],
+  }
+
 }
+
+
