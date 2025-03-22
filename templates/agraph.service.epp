@@ -1,0 +1,19 @@
+ <%- |
+ Stdlib::Absolutepath $app_path,
+ Stdlib::Absolutepath $config_path,
+| -%>
+[Unit]
+Description=AllegroGraph service
+After=network.target
+
+[Service]
+Type=forking
+User=agraph
+WorkingDirectory=<%= $app_path%>
+ExecStart=<%= $app_path%>/bin/agraph-control --config <%= $config_path%> start
+ExecStop=<%= $app_path%>/bin/agraph-control --config <%= $config_path%> stop
+RuntimeDirectory=agraph
+PIDFile=/run/agraph/agraph.pid
+
+[Install]
+WantedBy=multi-user.target

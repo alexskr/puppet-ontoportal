@@ -14,7 +14,7 @@ class ontoportal::agraph(
   Stdlib::HTTPUrl $source_url = "https://franz.com/ftp/pri/acl/ag/ag${version}/linuxamd64.64/${package_name}",
   Stdlib::Port $port          = 10035,
   String $ensure              = present,
-  Boolean $service_ensure     = true,
+  $service_ensure             = 'running',
   Boolean $manage_fw          = false,
   Boolean $optimize_kernel    = false,
   Optional[String] $license   = undef,
@@ -56,27 +56,18 @@ class ontoportal::agraph(
     target  => $app_path,
   }
 
-  $_systemd_unit_file_content = @("EOT")
-    [Unit]
-    Description=AllegroGraph service
-    After=network.target
-
-    [Service]
-    Type=forking
-    User=agraph
-    WorkingDirectory=${app_path}
-    ExecStart=${app_path}/bin/agraph-control --config $config_path start
-    ExecStop=${app_path}/bin/agraph-control --config $config_path stop
-    RuntimeDirectory=agraph
-    PIDFile=/run/agraph/agraph.pid
-    | EOT
-  systemd::unit_file { "agraph.service":
-    content => $_systemd_unit_file_content,
+  systemd::unit_file { 'agraph.service':
+    content => epp ('ontoportal/agraph.service.epp', {
+      'app_path'     => $app_path,
+      'config_path'  => $config_path,
+    }),
   }
   ~> service { "agraph.service":
-    ensure  => $service_ensure,
-    enable =>  true,
-    require => Exec["install_agraph_${version}"],
+    ensure     => $service_ensure,
+    enable     =>  true,
+    hasstatus  => true,
+    hasrestart =>  true,
+    require    => Exec["install_agraph_${version}"],
   }
 
   if $optimize_kernel {
@@ -130,42 +121,15 @@ class ontoportal::agraph(
     group  => 'agraph',
   }
 
-  $inline_agraph_cnf = @("EOF"/L)
-    # AllegroGraph configuration file
-    RunAs agraph
-    Port 10035
-    SettingsDirectory ${data_dir}/settings
-    LogDir /var/log/agraph
-    PidFile /run/agraph/agraph.pid
-    InstanceTimeout 604800
-
-    ReplicationPorts 13000-13020
-
-    SlowQueryLogThreshold 10000
-    SlowQueryLogFile /var/log/agraph/slow.log
-
-    <RootCatalog>
-    ExpectedStoreSize 350000000
-    Main ${data_dir}/rootcatalog
-    TransactionLogDir ${data_dir}/rootcatalog-tlog
-    StringTableDir ${data_dir}/rootcatalog-str
-    </RootCatalog>
-
-    <SystemCatalog>
-    Main ${data_dir}/systemcatalog
-    InstanceTimeout 10
-    </SystemCatalog>
-
-    ${license}
-
-    | EOF
-
   file { '/etc/agraph/agraph.cfg':
     ensure  => present,
     mode    => '0644',
     owner   => root,
     group   => root,
-    content => $inline_agraph_cnf,
+    content =>  epp ('ontoportal/agraph.config.epp', {
+      'data_dir' => $data_dir,
+      'license'  => $license,
+    }),
   }
 
   file { [$data_dir, "${data_dir}/settings", "${data_dir}/settings/user"]:
