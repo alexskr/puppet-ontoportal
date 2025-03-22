@@ -10,12 +10,14 @@ class ontoportal::appliance::ui (
   $app_root_dir  = $ontoportal::appliance::app_root_dir,
   $ui_domain_name = $ontoportal::appliance::ui_domain_name,
   $api_domain_name = $ontoportal::appliance::api_domain_name,
+  $enable_https = true,
+  $puma_workers = 0,
 ) {
   include ontoportal::firewall::http
 
   # letsencrypt  
   # FIXME: why are we not using wrapper class for it?
-  ensure_packages (['certbot', 'python3-certbot-apache'])
+  # ensure_packages (['certbot', 'python3-certbot-apache'])
 
   # Create Directories (including parent directories)
   # file { [$app_root_dir,
@@ -29,26 +31,33 @@ class ontoportal::appliance::ui (
   #  Class['epel'] -> Class['ontoportal::bioportal_web_ui']
 
   class { 'ontoportal::bioportal_web_ui':
-    environment       => 'appliance',
-    ruby_version      => $ruby_version,
-    owner             => $owner,
-    group             => $group,
-    enable_mod_status => false,
-    logrotate_httpd   => 7,
-    logrotate_rails   => 7,
-    railsdir          => "${app_root_dir}/bioportal_web_ui",
-    domain            => $ui_domain_name,
-    slices            => [],
-    enable_ssl        => true,
-    # self-generated certificats
-    install_ruby      => true,
+    environment     => 'appliance',
+    ruby_version    => $ruby_version,
+    owner           => $owner,
+    group           => $group,
+    logrotate_nginx => 7,
+    logrotate_rails => 7,
+    app_root        => "${app_root_dir}/bioportal_web_ui",
+    domain          => $ui_domain_name,
+    slices          => [],
+    install_ruby    => true,
+    puma_workers    => $puma_workers,
   }
 
-  # mod_proxy is needed for reverse proxy of biomixer and annotator plus proxy
-  include apache::mod::proxy
-  include apache::mod::proxy_http
+  # proxy for BioMixer
+  nginx::resource::location { 'biomixer':
+    ensure           => present,
+    server           => 'ontoportal_web_ui',
+    ssl              => $enable_https,
+    location         => '/biomixer',
+    proxy            => 'http://127.0.0.1:8082',
+    proxy_set_header => [
+      'Host $host',
+      'X-Real-IP $remote_addr',
+      'X-Forwarded-For $proxy_add_x_forwarded_for',
+    ],
+  }
 
-  ##mysql setup
   class { 'mysql::server':
     remove_default_accounts => true,
     override_options        => {
@@ -74,9 +83,11 @@ class ontoportal::appliance::ui (
     max_memory    => '512m',
     max_item_size => '5M',
   }
+
+  #FIXME
   # add placeholder files with proper permissions for deployment
   file { '/srv/tomcat/webapps/biomixer.war':
-    replace => 'no',
+    replace => false,
     content => 'placeholder',
     mode    => '0644',
     owner   => $owner,

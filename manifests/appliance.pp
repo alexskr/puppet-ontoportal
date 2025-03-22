@@ -10,11 +10,11 @@ class ontoportal::appliance (
   Stdlib::Absolutepath $data_dir     = '/srv/ontoportal/data',
   Stdlib::Absolutepath $app_root_dir = '/opt/ontoportal',
   Stdlib::Port $api_port             = 8080,
-  Stdlib::Port $api_tls_port         = 8443,
+  Stdlib::Port $api_port_https       = 8443,
   String $ui_domain_name             = 'appliance.ontoportal.org',
   String $api_domain_name            = 'data.appliance.ontoportal.org',
   Boolean $manage_selinux            = false,
-  String $api_ruby_version           = '3.0.6',
+  String $api_ruby_version           = '3.1.6',
   String $ui_ruby_version            =  $api_ruby_version,
   String $goo_cache_maxmemory        = '512M',
   String $http_cache_maxmemory       = '512M',
@@ -108,7 +108,7 @@ class ontoportal::appliance (
       'PrintMotd'            => 'yes',
       'SyslogFacility'       => 'AUTHPRIV',
       'PermitEmptyPasswords' => 'no',
-      'Ciphers'              => 'aes128-ctr,aes192-ctr,aes256-ctr,aes128-gcm@openssh.com,aes256-gcm@openssh.com',
+      # 'Ciphers'              => 'aes128-ctr,aes192-ctr,aes256-ctr,aes128-gcm@openssh.com,aes256-gcm@openssh.com',
     },
   }
 
@@ -141,7 +141,7 @@ class ontoportal::appliance (
     shell      => '/bin/bash',
     uid        => '888',
   }
- 
+
   # OntoPortal system administator
   user { 'opadmin':
     ensure     => 'present',
@@ -155,6 +155,12 @@ class ontoportal::appliance (
     mode    => '0644',
     content => 'install: --no-document',
     require => User['ontoportal'],
+  }
+
+  file { '/etc/profile.d/ontoportal.sh':
+    owner  => 'root',
+    mode   => '0644',
+    source => 'puppet:///modules/ontoportal/etc/profile.d/ontoportal.sh',
   }
 
   group { 'ontoportal':
@@ -173,10 +179,11 @@ class ontoportal::appliance (
     ensure     => 'present',
     comment    => 'OntoPortal SysAdmin User',
     managehome => true,
-    # password is set primarely for packaging appliance via packer and it is reset by cleanup scripts
-    password   => '$6$z3zd7CSW$zlHFTTjkpBVp8fhpi5ZwdDxHFd.bfBK/b9jktYWwueLY/ddUf.31Y2zDcIsGuNQ4L/qBHoE8MCJXraQICAldX.',
+    # set initial password; however, need a way to prevent it from setting it back to the original after deployment
+    password   => '$6$xZ2Tljdh8zYaXxCf$Op/5Hrf4fd/3Ayn2xVy5oopcdyf1Qp8Tf3.K2gAONA7LmOoJsaLoVjeeW7DXVnv3Y.qf2qq7dsWSUiAyLiJJM1',
     shell      => '/bin/bash',
   }
+
   # Create Directories (including parent directories)
   file { [$app_root_dir,
     ]:
@@ -199,7 +206,6 @@ class ontoportal::appliance (
     contain ontoportal::appliance::api
   }
 
-
   $sudo_string = 'Cmnd_Alias ONTOPORTAL = /usr/local/bin/oprestart, /usr/local/bin/opstop, /usr/local/bin/opstart, /usr/local/bin/opstatus, /usr/local/bin/opclearcaches
 Cmnd_Alias NGINX = /bin/systemctl start nginx, /bin/systemctl stop nginx, /bin/systemctl restart nginx
 Cmnd_Alias NCBO_CRON = /bin/systemctl start ncbo_cron, /bin/systemctl stop ncbo_cron, /bin/systemctl restart ncbo_cron
@@ -208,7 +214,7 @@ Cmnd_Alias FSHTTPD = /bin/systemctl start 4s-httpd, /bin/systemctl stop 4s-httpd
 Cmnd_Alias FSBACKEND = /bin/systemctl start 4s-backend, /bin/systemctl stop 4s-backend, /bin/systemctl restart 4s-backend
 Cmnd_Alias FSBOSS = /bin/systemctl start 4s-boss, /bin/systemctl stop 4s-boss, /bin/systemctl restart 4s-boss
 Cmnd_Alias REDIS = /bin/systemctl start redis-server-*.service , /bin/systemctl stop redis-server-*.service , /bin/systemctl restart redis-server-*.service
-Cmnd_Alias UTILS = /usr/sbin/virt-what, /srv/ontoportal/virtual_appliance/utils/bootstrap/gen_tlscert.sh
+Cmnd_Alias UTILS = /usr/sbin/virt-what, /opt/ontoportal/virtual_appliance/utils/bootstrap/gen_tlscert.sh
 Cmnd_Alias AG = /usr/sbin/service agraph start, /usr/sbin/service agraph status /usr/sbin/service agraph stop
 ontoportal ALL = NOPASSWD: ONTOPORTAL, NGINX, NCBO_CRON, SOLR, FSHTTPD, FSBACKEND, FSBOSS, REDIS, UTILS, AG
 '
@@ -275,32 +281,14 @@ ontoportal ALL = NOPASSWD: ONTOPORTAL, NGINX, NCBO_CRON, SOLR, FSHTTPD, FSBACKEN
   # Ideally it should be executed by cloud-init but it is supported on all platforms so we rely on systemd
   # https://cloudinit.readthedocs.io/en/latest/topics/boot.html
   # fistboot script needs to run after cloud-init is completely done.
-  $firstboot = @("FIRSTBOOT"/L)
-    [Unit]
-    Description=Initial Ontoportal Appliance reconfiguration which runs only on first boot.
-    After=network-online.target cloud-final.service 4s-boss.service 4s-backend.service 4s-httpd.service redis-server-goo.service redis-server-http.service redis-server-persistent.service nginx.service
-    ConditionPathExists=${app_root_dir}/firstboot
-
-    [Service]
-    Type=oneshot
-    RemainAfterExit=yes
-    ExecStartPre=/usr/bin/sleep 5
-    ExecStart=${app_root_dir}/virtual_appliance/utils/bootstrap/firstboot.rb
-    ExecStartPost=/usr/bin/rm ${app_root_dir}/firstboot
-    User=ontoportal
-    Group=ontoportal
-    TimeoutSec=0
-    StandardOutput=journal+console
-
-    [Install]
-    WantedBy=multi-user.target
-    | FIRSTBOOT
-
   systemd::unit_file { 'ontoportal-firstboot.service':
     ensure  => present,
-    content => $firstboot,
+    content => epp ('ontoportal/firstboot.service.epp', {
+      'app_root'     => $app_root_dir,
+    }),
   }
   -> service { 'ontoportal-firstboot':
     enable => true,
   }
+
 }
