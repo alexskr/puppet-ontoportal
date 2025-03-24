@@ -36,8 +36,8 @@ class ontoportal::nginx (
 
   class { 'nginx':
     manage_repo              => $manage_nginx_repo,
-    passenger_package_ensure => false,
-    client_max_body_size     => '1G',
+    passenger_package_ensure => 'absent',
+    client_max_body_size     => '512M',
     http_tcp_nopush          => 'on',
     gzip_proxied             => 'any',
     gzip_types               => 'text/plain text/css application/x-javascript text/xml application/xml application/xml+rss application/json text/javascript',
