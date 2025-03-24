@@ -11,6 +11,8 @@ LogDir /var/log/agraph
 PidFile /run/agraph/agraph.pid
 InstanceTimeout 604800
 
+UseLicensedCores true
+
 ReplicationPorts 13000-13020
 
 SlowQueryLogThreshold 10000
