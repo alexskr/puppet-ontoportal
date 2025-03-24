@@ -122,8 +122,6 @@ class ontoportal::appliance (
   #  sysctl {'vm.swappiness': value => '0' }
   #}
 
-  include git
-
   ensure_packages([
       'linux-firmware',
     ],
