@@ -35,7 +35,7 @@ class ontoportal::bioportal_web_ui (
   Boolean $manage_nginx_repo       = false,
   Stdlib::Absolutepath $bundle_bin = '/usr/local/rbenv/shims/bundle',
   ){
-  include ontoportal:firewall::http
+  include ontoportal::firewall::http
 
   case $facts['os']['family'] {
     'RedHat': {
