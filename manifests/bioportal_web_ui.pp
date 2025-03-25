@@ -46,7 +46,8 @@ class ontoportal::bioportal_web_ui (
     }
     'Debian': {
       ensure_packages ([
-        'libmariadb-dev'
+        'libmariadb-dev',
+        'tzdata',
       ])
 
     }

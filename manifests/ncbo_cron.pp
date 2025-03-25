@@ -34,9 +34,10 @@ class ontoportal::ncbo_cron(
     }
     'Debian': {
       ensure_packages([
-        'raptor2-utils',
+        'file', # needed by oLD MIME detection
+        'libwww-perl', # needed for 4s-dump # required for 4s-dump to work
         'libxml2-dev',
-        'libwww-perl', # required for 4s-dump to work
+        'raptor2-utils',
       ])
     }
   }

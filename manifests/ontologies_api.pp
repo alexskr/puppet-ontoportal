@@ -43,7 +43,9 @@ class ontoportal::ontologies_api (
     }
     'Debian': {
       ensure_packages ([
-        'libxml2-dev'
+        'file', # needed by oLD mime detection
+        'libxml2-dev',
+        'raptor2-utils', # W: [strict_indent] indent should be 10 chars and is 8
       ])
     }
   }
