@@ -4,10 +4,12 @@
 # Description: wrapper class for managing common things for nginx
 #
 class ontoportal::nginx (
+  Stdlib::Port $port           = 80,
+  Stdlib::Port $ssl_port       = 443,
   Integer $logrotate_nginx     = 180,
   Boolean $enable_nginx_status = false,
   Boolean $manage_nginx_repo   = true,
-  Boolean $manage_firewall     = true,
+  Boolean $manage_firewall     = false,
   Boolean $manage_logrotate    = true,
   Integer $logrotate_days      = 180,
 ) {
