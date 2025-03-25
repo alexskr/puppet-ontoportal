@@ -26,7 +26,7 @@ class ontoportal::solr (
   Optional[String] $solr_heap      = undef,
   Boolean $newrelic                = false,
   String $newrelic_agent_version   = '7.11.1',
-  Boolean $manage_firewall         = true,
+  Boolean $manage_firewall         = false,
   Boolean $manage_java             = true,
   String $java_package = 'openjdk-11-jdk-headless',
   $fwsrc                           = [],
@@ -52,6 +52,7 @@ class ontoportal::solr (
       action => accept,
     }
   }
+
   # JDK openjdk_11.0.8+ is required
   # OpenJDK 11 problem described at https://issues.apache.org/jira/browse/SOLR-13606
 
@@ -72,14 +73,14 @@ class ontoportal::solr (
     group  => $group,
   }
   class { 'solr':
-    version           => $version,
-    solr_host         => $solr_host,
-    solr_heap         => $_solr_heap,
-    solr_home         => $data_dir,
-    java_home         => $java_home,
-    var_dir           => $var_dir,
-    solr_environment  => [$_solr_environment],
-    required_packages => ['unzip','lsof'], #ugly hack to prevent this module from installing java 8
+    version          => $version,
+    solr_host        => $solr_host,
+    solr_heap        => $_solr_heap,
+    solr_home        => $data_dir,
+    manage_java      => false,
+    java_home        => $java_home,
+    var_dir          => $var_dir,
+    solr_environment => [$_solr_environment],
   }
 
   $core_dirs = [
@@ -120,10 +121,10 @@ class ontoportal::solr (
     recurse => true,
   }
   -> file { $core_dirs:
-      ensure => directory,
-      owner  => $owner,
-      group  => $group,
-      mode   => '0755',
+    ensure => directory,
+    owner  => $owner,
+    group  => $group,
+    mode   => '0755',
   }
   -> file {
     "${data_dir}/prop_search_core1/conf":
@@ -141,9 +142,8 @@ class ontoportal::solr (
       target => "${config_dir}/term_search";
   }
   -> file { $core_prop_files:
-      ensure => present,
-      owner  => $owner,
-      group  => $group,
+    owner => $owner,
+    group => $group,
   }
 
   exec { 'initial config property_search':
@@ -171,5 +171,4 @@ class ontoportal::solr (
     changes => ["set int/#text '\${solr.max.booleanClauses:500000}'",],
     require => Class[solr],
   }
-
 }
