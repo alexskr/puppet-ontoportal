@@ -17,11 +17,10 @@
 # Sample Usage:
 #
 
-class ontoportal::firewall(
+class ontoportal::firewall (
   Optional[Hash[String, Hash]] $multis = {},
-){
-
-  include firewall
+) {
+  require firewall
 
   resources { 'firewall':
     purge => true,
@@ -46,5 +45,4 @@ class ontoportal::firewall(
       }
     }
   }
-
 }
