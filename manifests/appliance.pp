@@ -19,11 +19,12 @@ class ontoportal::appliance (
   String $goo_cache_maxmemory        = '512M',
   String $http_cache_maxmemory       = '512M',
 ) {
-  include ontoportal::firewall
+  require ontoportal::firewall
   include ontoportal::firewall::ssh
 
   # system utilities/libraries
   case $facts['os']['family'] {
+    # EL is not fully supported
     'RedHat': {
       require epel
       Class[epel] -> Class[nginx]
@@ -52,6 +53,9 @@ class ontoportal::appliance (
         'yum-utils',
         'telnet',
       ]
+      $packages_purge = [
+        'linux-firmware',
+      ]
     }
     'Debian': {
       $packages = [
@@ -77,15 +81,21 @@ class ontoportal::appliance (
         'tmux',
         'telnet',
       ]
+      $packages_purge = [
+        # 'openjdk-8-jre',
+      ]
     }
     default: { fail('unsupported platform') }
   }
 
-  ensure_packages( $packages )
+  stdlib::ensure_packages( $packages )
+  stdlib::ensure_packages( $packages_purge, { ensure => 'absent' })
 
-  #FIXME add DNS caching
-  #  include nscd
-  #nsswitch::hosts: ['files resolve [!UNAVAIL=return] dns']
+  class { 'systemd':
+    manage_resolved  => true,
+    manage_timesyncd => true,
+    manage_journald  => true,
+  }
 
   kernel_parameter { 'net.ifnames':
     value => '0',
@@ -122,12 +132,6 @@ class ontoportal::appliance (
   #  sysctl {'vm.swappiness': value => '0' }
   #}
 
-  ensure_packages([
-      'linux-firmware',
-    ],
-    { ensure => absent },
-  )
-
   user { 'ontoportal':
     ensure     => 'present',
     comment    => 'OntoPortal Service Account',
@@ -145,6 +149,7 @@ class ontoportal::appliance (
     ensure     => 'present',
     comment    => 'OntoPortal SysAdmin',
     shell      => '/bin/bash',
+    password   => '$6$xZ2Tljdh8zYaXxCf$Op/5Hrf4fd/3Ayn2xVy5oopcdyf1Qp8Tf3.K2gAONA7LmOoJsaLoVjeeW7DXVnv3Y.qf2qq7dsWSUiAyLiJJM1',
     managehome => true,
   }
 
@@ -170,16 +175,6 @@ class ontoportal::appliance (
     path    => '/home/ontoportal/.bashrc',
     line    => 'which ruby >/dev/null && which gem >/dev/null && PATH="$(ruby -r rubygems -e \'puts Gem.user_dir\')/bin:$PATH"',
     require => User['ontoportal'],
-  }
-
-  # ssh user
-  user { 'admin':
-    ensure     => 'present',
-    comment    => 'OntoPortal SysAdmin User',
-    managehome => true,
-    # set initial password; however, need a way to prevent it from setting it back to the original after deployment
-    password   => '$6$xZ2Tljdh8zYaXxCf$Op/5Hrf4fd/3Ayn2xVy5oopcdyf1Qp8Tf3.K2gAONA7LmOoJsaLoVjeeW7DXVnv3Y.qf2qq7dsWSUiAyLiJJM1',
-    shell      => '/bin/bash',
   }
 
   # Create Directories (including parent directories)
