@@ -27,7 +27,7 @@ class ontoportal::bioportal_web_ui (
   Stdlib::Absolutepath $ssl_cert   = "/etc/letsencrypt/live/${domain}/cert.pem",
   Stdlib::Absolutepath $ssl_key    = "/etc/letsencrypt/live/${domain}/privkey.pem",
   Stdlib::Absolutepath $ssl_fullchain = "/etc/letsencrypt/live/${domain}/fullchain.pem",
-  Boolean $enable_letsencrypt      = false,
+  Boolean $manage_letsencrypt      = false,
   Boolean $enable_https            = true,
   Boolean $enable_https_redirect   = true,
   Boolean $install_ruby            = true,
@@ -101,7 +101,7 @@ class ontoportal::bioportal_web_ui (
   }
 
   $slices_fqdn = $slices.map |$item| { "${item}.${domain}" }
-  if $enable_https and $enable_letsencrypt {
+  if $enable_https and $manage_letsencrypt {
     ontoportal::letsencrypt { $domain:
       cron_success_command => '/bin/systemctl reload nginx.service',
       domain               => $domain,

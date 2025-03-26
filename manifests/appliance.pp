@@ -4,6 +4,9 @@
 class ontoportal::appliance (
   Boolean $ui                        = true,
   Boolean $api                       = true,
+  Boolean $manage_firewall           = true,
+  Boolean $manage_letsencrypt        = false,
+  Boolean $manage_selinux            = false,
   String $owner                      = 'ontoportal',
   String $group                      = 'ontoportal',
   String $appliance_version          = '4.0',
@@ -13,14 +16,15 @@ class ontoportal::appliance (
   Stdlib::Port $api_port_https       = 8443,
   String $ui_domain_name             = 'appliance.ontoportal.org',
   String $api_domain_name            = 'data.appliance.ontoportal.org',
-  Boolean $manage_selinux            = false,
   String $api_ruby_version           = '3.1.6',
   String $ui_ruby_version            =  $api_ruby_version,
   String $goo_cache_maxmemory        = '512M',
   String $http_cache_maxmemory       = '512M',
 ) {
-  require ontoportal::firewall
-  include ontoportal::firewall::ssh
+  if $manage_firewall {
+    require ontoportal::firewall
+    include ontoportal::firewall::ssh
+  }
 
   # system utilities/libraries
   case $facts['os']['family'] {

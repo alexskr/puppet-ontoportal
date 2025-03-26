@@ -2,6 +2,8 @@
 
 # this is more of a role than a profile.
 class ontoportal::appliance::ui (
+  Boolean $manage_firewall = $ontoportal::appliance::manage_firewall,
+  Boolean $manage_letsencrypt = $ontoportal::appliance::manage_letsencrypt,
   $owner = $ontoportal::appliance::owner,
   $group = $ontoportal::appliance::group,
   $appliance_version = $ontoportal::appliance::appliance_version,
@@ -13,35 +15,24 @@ class ontoportal::appliance::ui (
   $enable_https = true,
   $puma_workers = 0,
 ) {
-  include ontoportal::firewall::http
+  if $manage_firewall {
+    include ontoportal::firewall::http
+  }
 
-  # letsencrypt  
-  # FIXME: why are we not using wrapper class for it?
-  # ensure_packages (['certbot', 'python3-certbot-apache'])
-
-  # Create Directories (including parent directories)
-  # file { [$app_root_dir,
-  #   ]:
-  #     ensure => directory,
-  #     owner  => $owner,
-  #     group  => $group,
-  #     mode   => '0775',
-  #}
-  # chaining api and UI,  sometimes passenger yum repo confuses nginx installation.
-  #  Class['epel'] -> Class['ontoportal::bioportal_web_ui']
 
   class { 'ontoportal::bioportal_web_ui':
-    environment     => 'appliance',
-    ruby_version    => $ruby_version,
-    owner           => $owner,
-    group           => $group,
-    logrotate_nginx => 7,
-    logrotate_rails => 7,
-    app_root        => "${app_root_dir}/bioportal_web_ui",
-    domain          => $ui_domain_name,
-    slices          => [],
-    install_ruby    => true,
-    puma_workers    => $puma_workers,
+    environment        => 'appliance',
+    ruby_version       => $ruby_version,
+    owner              => $owner,
+    group              => $group,
+    manage_letsencrypt => $manage_letsencrypt,
+    logrotate_nginx    => 7,
+    logrotate_rails    => 7,
+    app_root           => "${app_root_dir}/bioportal_web_ui",
+    domain             => $ui_domain_name,
+    slices             => [],
+    install_ruby       => true,
+    puma_workers       => $puma_workers,
   }
 
   # proxy for BioMixer

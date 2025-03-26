@@ -1,6 +1,7 @@
 ########################################################################
 
 class ontoportal::appliance::api (
+  Boolean $manage_firewall = $ontoportal::appliance::manage_firewall,
   $goo_cache_maxmemory = $ontoportal::appliance::goo_cache_maxmemory,
   $http_cache_maxmemory = $ontoportal::appliance::http_cache_maxmemory,
   $api_port = $ontoportal::appliance::api_port,
@@ -11,11 +12,12 @@ class ontoportal::appliance::api (
   $ruby_version = $ontoportal::appliance::api_ruby_version,
   $data_dir = $ontoportal::appliance::data_dir,
   $app_root_dir  = $ontoportal::appliance::app_root_dir,
-  $ui_domain_name = $ontoportal::appliance::ui_domain_name,
   $api_domain_name = $ontoportal::appliance::api_domain_name,
-  $enable_4store = false,
+  Boolean $enable_4store = false,
 ) {
-  include ontoportal::firewall::api
+  if $manage_firewall {
+    include ontoportal::firewall::api
+  }
 
   User <| title == ontoportal |> { groups +> 'tomcat' }
 
