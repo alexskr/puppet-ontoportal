@@ -152,8 +152,10 @@ class ontoportal::solr (
       target => "${config_dir}/term_search";
   }
   -> file { $core_prop_files:
-    owner => $owner,
-    group => $group,
+    ensure  => present,
+    replace => false,
+    owner   => $owner,
+    group   => $group,
   }
 
   file { "${data_dir}/solr.xml":
