@@ -68,7 +68,6 @@ class ontoportal::solr (
     ensure     => 'present',
     comment    => 'solr',
     system     => true,
-    managehome => true,
     home       => $var_dir,
     password   => '!!',
     shell      => '/bin/bash',
@@ -110,7 +109,13 @@ class ontoportal::solr (
   #   #require  => Class['solr'],
   #   subscribe => Class['solr'],
   # }
-  file { $config_dir:
+  file { $var_dir:
+    ensure => directory,
+    mode   => '0755',
+    owner  => $owner,
+    group  => $group,
+  }
+  -> file { $config_dir:
     ensure  => directory,
     owner   => $deployeruser,
     group   => $deployergroup,
