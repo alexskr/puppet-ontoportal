@@ -28,11 +28,9 @@ class ontoportal::solr (
   String $newrelic_agent_version   = '7.11.1',
   Boolean $manage_firewall         = false,
   Boolean $manage_java             = true,
-  String $java_package = 'openjdk-11-jdk-headless',
+  String $java_package             = 'openjdk-11-jdk-headless',
   $fwsrc                           = [],
 ) {
-  $java_home = '/usr/lib/jvm/java-11-openjdk-amd64'
-
   if $manage_java {
     Class { 'java':
       package => $java_package
@@ -66,19 +64,26 @@ class ontoportal::solr (
     $_solr_environment = 'SOLR_OPTS="${SOLR_OPTS}"' # lint:ignore:single_quote_string_with_variables
   }
 
-  file { $var_dir:
-    ensure => directory,
-    mode   => '0755',
-    owner  => $owner,
-    group  => $group,
+  user { 'solr':
+    ensure     => 'present',
+    comment    => 'solr',
+    system     => true,
+    managehome => true,
+    home       => $var_dir,
+    password   => '!!',
+    shell      => '/bin/bash',
+    before     => Class['solr'],
   }
+
   class { 'solr':
+    #  url              => "https://dlcdn.apache.org/lucene/solr",
     version          => $version,
     solr_host        => $solr_host,
     solr_heap        => $_solr_heap,
     solr_home        => $data_dir,
+    manage_user      => false,
     manage_java      => false,
-    java_home        => $java_home,
+    java_home        => '/usr/lib/jvm/java-11-openjdk-amd64',
     var_dir          => $var_dir,
     solr_environment => [$_solr_environment],
   }
@@ -110,8 +115,8 @@ class ontoportal::solr (
     owner   => $deployeruser,
     group   => $deployergroup,
     mode    => '0755',
-    require => Class['solr'],
-    # subscribe => Class['solr'],
+    before  => Class['solr'],
+    require => User['solr'],
   }
   -> file { ["${config_dir}/property_search", "${config_dir}/term_search"]:
     ensure  => directory,
@@ -146,6 +151,14 @@ class ontoportal::solr (
     group => $group,
   }
 
+  file { "${data_dir}/solr.xml":
+    owner   => $deployeruser,
+    group   => $deployergroup,
+    mode    => '0644',
+    replace => false,
+    content => '<solr> </solr>',
+  }
+
   exec { 'initial config property_search':
     cwd     => $config_dir,
     command => "/bin/cp -avr /opt/solr/server/solr/configsets/_default/conf/* ${config_dir}/property_search && \
@@ -169,6 +182,6 @@ class ontoportal::solr (
     lens    => 'Xml.lns',
     context => "/files/${data_dir}/solr.xml/solr",
     changes => ["set int/#text '\${solr.max.booleanClauses:500000}'",],
-    require => Class[solr],
+    require => File["${data_dir}/solr.xml"],
   }
 }
