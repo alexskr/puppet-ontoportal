@@ -40,16 +40,15 @@ class ontoportal::bioportal_web_ui (
   case $facts['os']['family'] {
     'RedHat': {
       require epel
-      ensure_packages ([
+      stdlib::ensure_packages ([
         'mariadb-devel',
       ])
     }
     'Debian': {
-      ensure_packages ([
+      stdlib::ensure_packages ([
         'libmariadb-dev',
         'tzdata',
       ])
-
     }
   }
 
@@ -208,7 +207,4 @@ class ontoportal::bioportal_web_ui (
       'X-Real-IP $remote_addr',
     ],
   }
-
 }
-
-
