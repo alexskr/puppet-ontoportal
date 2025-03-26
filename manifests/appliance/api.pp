@@ -20,7 +20,7 @@ class ontoportal::appliance::api (
   User <| title == ontoportal |> { groups +> 'tomcat' }
 
   # Create Directories (including parent directories)
-  file { [$data_dir,
+  file { ['/srv/ontoportal', $data_dir,
       "${data_dir}/reports", "${data_dir}/mgrep",
       "${data_dir}/mgrep/dictionary/",
     ]:
