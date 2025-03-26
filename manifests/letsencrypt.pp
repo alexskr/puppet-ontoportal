@@ -1,10 +1,10 @@
 #letsencrypt wrapper
 define ontoportal::letsencrypt(
-  Stdlib::Fqdn $domain                = $name,
-  Enum['webroot', 'apache', 'nginx'] $plugin = 'nginx',
-  Stdlib::Absolutepath $webroot_paths = ['/mnt/.letsencrypt'],
-  String $cron_success_command        = '/bin/systemctl reload nginx.service',
-  $san                                = [], #subject alternate names
+  Stdlib::Fqdn $domain         = $name,
+  Enum['webroot', 'apache', 'nginx'] $plugin    = 'nginx',
+  Optional[Stdlib::Absolutepath] $webroot_paths = undef,
+  String $cron_success_command = '/bin/systemctl reload nginx.service',
+  $san                         = [], #subject alternate names
 ) {
   include letsencrypt
   include cron
@@ -21,11 +21,6 @@ define ontoportal::letsencrypt(
   if $plugin == 'apache' {
     ensure_packages ( 'python3-certbot-apache' )
   }
-
-  if $plugin == 'nginx' {
-    ensure_packages ( 'python3-certbot-nginx' )
-  }
-
 
   if $cron_success_command == undef {
     case $plugin {
