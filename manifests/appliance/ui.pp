@@ -13,7 +13,7 @@ class ontoportal::appliance::ui (
   $ui_domain_name = $ontoportal::appliance::ui_domain_name,
   $api_domain_name = $ontoportal::appliance::api_domain_name,
   $enable_https = true,
-  $puma_workers = 0,
+  $puma_workers = undef,
 ) {
   if $manage_firewall {
     include ontoportal::firewall::http
