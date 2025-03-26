@@ -47,7 +47,7 @@ class ontoportal::solr (
       source => $fwsrc,
       dport  => 8983,
       proto  => tcp,
-      action => accept,
+      jump   => accept,
     }
   }
 
