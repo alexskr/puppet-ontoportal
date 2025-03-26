@@ -2,6 +2,7 @@
 
 class ontoportal::appliance::api (
   Boolean $manage_firewall = $ontoportal::appliance::manage_firewall,
+  Boolean $manage_letsencrypt = $ontoportal::appliance::manage_letsencrypt,
   $goo_cache_maxmemory = $ontoportal::appliance::goo_cache_maxmemory,
   $http_cache_maxmemory = $ontoportal::appliance::http_cache_maxmemory,
   $api_port = $ontoportal::appliance::api_port,
@@ -49,7 +50,7 @@ class ontoportal::appliance::api (
     ruby_version        => $ruby_version,
     owner               => $owner,
     group               => $group,
-    enable_letsencrypt  => false, #not nessesary for appliance
+    manage_letsencrypt  => $manage_letsencrypt,
     enable_nginx_status => false, #not requried for appliance
     manage_nginx_repo   => false,
     manage_firewall     => false,
@@ -106,7 +107,7 @@ class ontoportal::appliance::api (
   # annotator plus proxy reverse proxy
   nginx::resource::location { '/annotatorplus/':
     ensure => present,
-    # ssl   => false,
+    ssl    => true,
     server => 'ontologies_api',
     proxy  => 'http://localhost:8082/annotatorplus/',
   }

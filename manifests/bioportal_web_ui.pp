@@ -13,7 +13,7 @@
 #
 
 class ontoportal::bioportal_web_ui (
-  Enum[ 'staging', 'production', 'appliance', 'development'] $environment = 'staging',
+  Enum['staging', 'production', 'appliance', 'development'] $environment = 'staging',
   String $ruby_version             = '3.1.6',
   String $owner                    = 'ontoportal',
   String $group                    = 'ncbo',
@@ -23,7 +23,7 @@ class ontoportal::bioportal_web_ui (
   Integer $puma_workers            = $facts['processors']['count']/2,
   Stdlib::Absolutepath $app_root   = '/opt/ontoportal/bioportal_web_ui',
   $domain                          = 'demo.ontoportal.org',
-  $slices = [ ], #used as SAN for letsencrypt
+  $slices = [], #used as SAN for letsencrypt
   Stdlib::Absolutepath $ssl_cert   = "/etc/letsencrypt/live/${domain}/cert.pem",
   Stdlib::Absolutepath $ssl_key    = "/etc/letsencrypt/live/${domain}/privkey.pem",
   Stdlib::Absolutepath $ssl_fullchain = "/etc/letsencrypt/live/${domain}/fullchain.pem",
@@ -34,7 +34,7 @@ class ontoportal::bioportal_web_ui (
   Stdlib::Port $port               = 80,
   Boolean $manage_nginx_repo       = false,
   Stdlib::Absolutepath $bundle_bin = '/usr/local/rbenv/shims/bundle',
-  ){
+) {
   include ontoportal::firewall::http
 
   case $facts['os']['family'] {
@@ -57,17 +57,17 @@ class ontoportal::bioportal_web_ui (
 
   if $install_ruby {
     ontoportal::rbenv { $ruby_version:
-      global =>  true,
+      global => true,
       # rubygems_version => '3.5.16',
       # bundler_version  => '2.5.16',
     }
   }
 
-  file {  '/var/log/rails':
-      ensure => directory,
-      owner  => $owner,
-      group  => $group,
-      mode   => '0770';
+  file { '/var/log/rails':
+    ensure => directory,
+    owner  => $owner,
+    group  => $group,
+    mode   => '0770';
   }
 
   #Create rails directory structure
@@ -76,9 +76,9 @@ class ontoportal::bioportal_web_ui (
       ensure => directory,
       owner  => $owner,
       group  => $group;
-    [ $app_root ,"${app_root}/shared","${app_root}/releases", "${app_root}/shared/system", "${app_root}/shared/tmp","${app_root}/shared/tmp/sockets"]:
+    [$app_root ,"${app_root}/shared","${app_root}/releases", "${app_root}/shared/system", "${app_root}/shared/tmp","${app_root}/shared/tmp/sockets"]:
       mode   => '0775';
-    [ "${app_root}/shared/log"]:
+    ["${app_root}/shared/log"]:
       ensure => 'link',
       target => '/var/log/rails',
       force  => yes;
@@ -109,7 +109,7 @@ class ontoportal::bioportal_web_ui (
     }
   }
 
-  if $enable_letsencrypt {
+  if $manage_letsencrypt {
     # enable HTTPS if letsencrypt cert is generated
     # FIXME This method requires two puppet agent runs; first to request Letsencrypt certs
     # and second run to update cert paths.  Refactor is needed
@@ -125,7 +125,7 @@ class ontoportal::bioportal_web_ui (
 
   $_enable_https_redirect = $enable_ssl and $enable_https_redirect
 
-  ontoportal::puma {'ui':
+  ontoportal::puma { 'ui':
     owner        => $owner,
     group        => $group,
     app_root     => $app_root,
@@ -145,10 +145,11 @@ class ontoportal::bioportal_web_ui (
     ssl_only    => $_enable_https_redirect,
     www_root    => "${app_root}/current/public",
     gzip_static => 'on',
-    expires     =>  '1y',
+    expires     => '1y',
     server      => 'ontoportal_web_ui',
     add_header  => {
-      'Cache-Control' => 'public', }, #response can be cached within proxies rails defaults to private
+      'Cache-Control' => 'public',
+    }, #response can be cached within proxies rails defaults to private
   }
 
   # Define the upstream Puma socket
@@ -157,7 +158,8 @@ class ontoportal::bioportal_web_ui (
       'ui' => {
         server       => "unix:${app_root}/shared/tmp/sockets/puma.sock",
         fail_timeout => '0s',
-    },}
+      },
+    },
   }
 
   $raw_append = @(NGINX_RAW_APPEND)
@@ -180,7 +182,7 @@ class ontoportal::bioportal_web_ui (
 
   nginx::resource::server { 'ontoportal_web_ui':
     ensure         => present,
-    server_name    => [$domain, $::fqdn] + $slices_fqdn,
+    server_name    => [$domain] + $slices_fqdn,
     listen_port    => $port,
     listen_options => 'default_server',
     www_root       => "${app_root}/current/public",
