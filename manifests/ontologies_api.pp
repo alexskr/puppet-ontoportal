@@ -34,13 +34,13 @@ class ontoportal::ontologies_api (
       selinux::boolean { 'httpd_can_sendmail': }
       selinux::boolean { 'httpd_can_network_connect': }
       require epel
-      ensure_packages ([
+      stdlib::ensure_packages ([
         'libxml2-devel', # for xml gem
       ])
       Class[epel] -> Class[nginx]
     }
     'Debian': {
-      ensure_packages ([
+      stdlib::ensure_packages ([
         'file', # needed by oLD mime detection
         'libxml2-dev',
         'raptor2-utils', # W: [strict_indent] indent should be 10 chars and is 8

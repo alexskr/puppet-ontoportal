@@ -12,15 +12,15 @@
 # Sample Usage:
 #
 
-class ontoportal::ncbo_cron(
+class ontoportal::ncbo_cron (
   $environment          = 'staging',
   $owner                = 'ncbo-deployer',
   $group                = 'ncbo-deployer',
   $app_path             = '/opt/ontoportal/ncbo_cron',
   $service              = 'running',
-  $repo_path            = '/srv/ncbo/repository',
+  $repo_path            = '/srv/ontoportal/repository',
   $reposymlink          = undef, #"/srv/ncbo/share/env/${ncbo_environment}/repository",
-  $ruby_version         = '2.7.8',
+  $ruby_version         = '3.1.6',
   $logrotate_days       = 356,
   Boolean $install_java = true,
   Boolean $install_ruby = true,
@@ -33,7 +33,7 @@ class ontoportal::ncbo_cron(
       require librdf::raptor2
     }
     'Debian': {
-      ensure_packages([
+      stdlib::ensure_packages([
         'file', # needed by oLD MIME detection
         'libwww-perl', # needed for 4s-dump # required for 4s-dump to work
         'libxml2-dev',
@@ -57,10 +57,10 @@ class ontoportal::ncbo_cron(
   }
 
   file { [$repo_path]:
-     ensure => directory,
-     owner  => $owner,
-     group  => $group ,
-     mode   => '0775',
+    ensure => directory,
+    owner  => $owner,
+    group  => $group ,
+    mode   => '0775',
   }
 
   #/tmp clean up script - Deletes files that ncbo_cron is too lazy to delete
@@ -113,4 +113,3 @@ class ontoportal::ncbo_cron(
     su_group     => $group,
   }
 }
-

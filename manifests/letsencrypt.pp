@@ -19,7 +19,7 @@ define ontoportal::letsencrypt(
   }
 
   if $plugin == 'apache' {
-    ensure_packages ( 'python3-certbot-apache' )
+    stdlib::ensure_packages ( 'python3-certbot-apache' )
   }
 
   if $cron_success_command == undef {

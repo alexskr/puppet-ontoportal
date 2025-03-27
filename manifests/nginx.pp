@@ -21,7 +21,7 @@ class ontoportal::nginx (
     }
   }
 
-  ensure_packages(['ssl-cert']) # needed for snakeoil ssl cert
+  stdlib::ensure_packages(['ssl-cert']) # needed for snakeoil ssl cert
 
   class { 'nginx':
     manage_repo              => $manage_nginx_repo,
