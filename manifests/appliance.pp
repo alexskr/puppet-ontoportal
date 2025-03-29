@@ -1,12 +1,39 @@
-########################################################################
-
-# this is more of a role than a profile.
+# @summary Role class for configuring the OntoPortal Appliance
+#
+# This class configures the base system for the OntoPortal virtual appliance.
+# It sets up users, system packages, system services, application directories, and roles for the UI/API.
+#
+# Intended to be used as a top-level "role" class during image building or provisioning.
+#
+# @param ui Whether to enable the UI component.
+# @param api Whether to enable the API component.
+# @param manage_firewall Whether to manage firewall rules.
+# @param manage_letsencrypt Whether to manage Let's Encrypt SSL certificate generation.
+# @param manage_selinux Whether to configure SELinux (not fully supported).
+# @param manage_va_repo Whether to clone the virtual appliance Git repository.
+# @param manage_opadmin Whether to create an 'opadmin' sysadmin user (also enabled during Packer builds).
+# @param owner The Unix owner for application files and directories.
+# @param group The Unix group for application files and directories.
+# @param appliance_version The version of the OntoPortal appliance to deploy.
+# @param data_dir The root directory for data volumes.
+# @param app_root_dir The root directory for the application code.
+# @param api_port The HTTP port for the API server.
+# @param api_port_https The HTTPS port for the API server.
+# @param ui_domain_name The domain name to use for the UI component.
+# @param api_domain_name The domain name to use for the API component.
+# @param api_ruby_version The Ruby version to use for the API component.
+# @param ui_ruby_version The Ruby version to use for the UI component (defaults to API version).
+# @param goo_cache_maxmemory Max memory allocated to the Goo cache layer.
+# @param http_cache_maxmemory Max memory allocated to the HTTP cache layer.
+#
 class ontoportal::appliance (
   Boolean $ui                        = true,
   Boolean $api                       = true,
   Boolean $manage_firewall           = true,
   Boolean $manage_letsencrypt        = false,
   Boolean $manage_selinux            = false,
+  Boolean $manage_va_repo            = false,
+  Boolean $manage_opadmin            = false,
   String $owner                      = 'ontoportal',
   String $group                      = 'ontoportal',
   String $appliance_version          = '4.0',
@@ -148,13 +175,15 @@ class ontoportal::appliance (
     uid        => '888',
   }
 
-  # OntoPortal system administator
-  user { 'opadmin':
-    ensure     => 'present',
-    comment    => 'OntoPortal SysAdmin',
-    shell      => '/bin/bash',
-    password   => '$6$xZ2Tljdh8zYaXxCf$Op/5Hrf4fd/3Ayn2xVy5oopcdyf1Qp8Tf3.K2gAONA7LmOoJsaLoVjeeW7DXVnv3Y.qf2qq7dsWSUiAyLiJJM1',
-    managehome => true,
+  if $manage_opadmin or $facts['packer_build'] {
+    # OntoPortal system administator
+    user { 'opadmin':
+      ensure     => 'present',
+      comment    => 'OntoPortal SysAdmin',
+      shell      => '/bin/bash',
+      password   => '$6$xZ2Tljdh8zYaXxCf$Op/5Hrf4fd/3Ayn2xVy5oopcdyf1Qp8Tf3.K2gAONA7LmOoJsaLoVjeeW7DXVnv3Y.qf2qq7dsWSUiAyLiJJM1',
+      managehome => true,
+    }
   }
 
   file { '/home/ontoportal/.gemrc':
@@ -257,17 +286,20 @@ ontoportal ALL = NOPASSWD: ONTOPORTAL, NGINX, NCBO_CRON, SOLR, FSHTTPD, FSBACKEN
     target => "${app_root_dir}/virtual_appliance/utils/opclearcaches",
   }
 
-  vcsrepo { "${app_root_dir}/virtual_appliance":
-    ensure   => present,
-    provider => git,
-    user     => $owner,
-    group    => $group,
-    source   => 'https://github.com/ncbo/virtual_appliance',
-    branch   => $appliance_version,
-    require  => User[$owner],
+  if $manage_va_repo {
+    vcsrepo { "${app_root_dir}/virtual_appliance":
+      ensure   => present,
+      provider => git,
+      user     => $owner,
+      group    => $group,
+      source   => 'https://github.com/ncbo/virtual_appliance',
+      branch   => $appliance_version,
+      require  => User[$owner],
+      after    => File["${app_root_dir}/virtual_appliance"],
+    }
   }
 
-  -> file { "${app_root_dir}/virtual_appliance":
+  file { "${app_root_dir}/virtual_appliance":
     ensure => directory,
     owner  => $owner,
     group  => $group,
@@ -281,11 +313,10 @@ ontoportal ALL = NOPASSWD: ONTOPORTAL, NGINX, NCBO_CRON, SOLR, FSHTTPD, FSBACKEN
   systemd::unit_file { 'ontoportal-firstboot.service':
     ensure  => present,
     content => epp ('ontoportal/firstboot.service.epp', {
-      'app_root'     => $app_root_dir,
+      'app_root' => $app_root_dir,
     }),
   }
   -> service { 'ontoportal-firstboot':
     enable => true,
   }
-
 }
