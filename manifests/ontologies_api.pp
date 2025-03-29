@@ -27,7 +27,6 @@ class ontoportal::ontologies_api (
   Boolean $manage_nginx_repo       = true,
   Boolean $manage_firewall         = true,
   Stdlib::Absolutepath $data_dir   = '/srv/ontoportal',
-  Stdlib::Absolutepath $le_www_root = '/mnt/.letsencrypt',
 ) {
   case $facts['os']['family'] {
     'RedHat': {
@@ -90,7 +89,9 @@ class ontoportal::ontologies_api (
       },
     },
   }
-  $_enable_https_redirect = $enable_https and $enable_https_redirect
+  # enable https redirect only if we have valid certs
+  #$_enable_https_redirect = $enable_https and $enable_https_redirect and $manage_letsencrypt
+  $_enable_https_redirect = $enable_https and $enable_https_redirect and $manage_letsencrypt
   if $enable_https and $manage_letsencrypt {
     $_san = $slices.map |$item| { "${item}.${domain}" }
     ontoportal::letsencrypt { $domain:
@@ -114,6 +115,8 @@ class ontoportal::ontologies_api (
     $_ssl_key   = '/etc/ssl/private/ssl-cert-snakeoil.key'
   }
 
+  # don't enable default server for nginx if its running on standard ports,
+  # just in case UI is running on the same machine
   $listen_options = ($port == 80 and $port_https == 443) ? {
     true  => undef,
     false => 'default_server',
