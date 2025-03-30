@@ -53,6 +53,12 @@ class ontoportal::appliance (
     include ontoportal::firewall::ssh
   }
 
+  # disable puppet agent since we run it in a masterless mode
+  service { 'puppet':
+    ensure => 'stopped',
+    enable => false,
+  }
+
   # system utilities/libraries
   case $facts['os']['family'] {
     # EL is not fully supported
