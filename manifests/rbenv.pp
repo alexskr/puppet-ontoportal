@@ -1,15 +1,17 @@
-define ontoportal::rbenv(
+define ontoportal::rbenv (
   String $ruby_version     = $title,
   String $rubygems_version = '3.5.20',
   String $bundler_version  = '2.5.20',
   Boolean $global          = true
 ) {
-
-  #ruby can take a while to compile
+  # ruby can take a while to compile
   Exec { timeout => 1800 }
 
-  class{ 'rbenv':
-    env => ["TMPDIR=/var/tmp"], #ubuntu mounts /tmp with noexec by defualt which breaks ruby build
+  class { 'rbenv':
+    env => [
+      'TMPDIR=/var/tmp',  # in case if /tmp is mounted with noexec which will break ruby build
+      "MAKE_OPTS=-j${facts['processors']['count']}" # use all available cores to speed up builds
+    ],
   }
 
   if !defined(Rbenv::Plugin['rbenv/ruby-build']) {
