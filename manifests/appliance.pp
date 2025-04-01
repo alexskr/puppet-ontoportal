@@ -264,12 +264,8 @@ ontoportal ALL = NOPASSWD: ONTOPORTAL, NGINX, NCBO_CRON, SOLR, FSHTTPD, FSBACKEN
     # config_file_replace => false,
   }
 
-  sudo::conf { $ssh_user:
-    content => "$ssh_user ALL=(ALL) NOPASSWD: ALL",
-  }
-
   sudo::conf { 'appliance':
-    content => $sudo_string,
+    source => 'puppet:///modules/ontoportal/etc/sudoers.d/appliance',
   }
 
   file_line { 'add appliance ip to /etc/issue':
