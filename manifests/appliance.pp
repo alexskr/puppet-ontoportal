@@ -11,7 +11,8 @@
 # @param manage_letsencrypt Whether to manage Let's Encrypt SSL certificate generation.
 # @param manage_selinux Whether to configure SELinux (not fully supported).
 # @param manage_va_repo Whether to clone the virtual appliance Git repository.
-# @param manage_opadmin Whether to create an 'opadmin' sysadmin user (also enabled during Packer builds).
+# @param manage_ssh_user Whether to create an sysadmin user for ssh logins (also enabled during Packer builds).
+# @param ssh_user ssh login account
 # @param owner The Unix owner for application files and directories.
 # @param group The Unix group for application files and directories.
 # @param appliance_version The version of the OntoPortal appliance to deploy.
@@ -33,7 +34,8 @@ class ontoportal::appliance (
   Boolean $manage_letsencrypt        = false,
   Boolean $manage_selinux            = false,
   Boolean $manage_va_repo            = false,
-  Boolean $manage_opadmin            = false,
+  Boolean $manage_ssh_user           = false,
+  String $ssh_user                   = 'ubuntu',
   String $owner                      = 'ontoportal',
   String $group                      = 'ontoportal',
   String $appliance_version          = '4.0',
@@ -181,14 +183,19 @@ class ontoportal::appliance (
     uid        => '888',
   }
 
-  if $manage_opadmin or $facts['packer_build'] {
+  # optionally create ssh login account; don't create it in aws ami
+  if ($manage_ssh_user or $facts['packer_build']) and !$facts['ec2_metadata'] {
     # OntoPortal system administator
-    user { 'opadmin':
+    user { $ssh_user:
       ensure     => 'present',
       comment    => 'OntoPortal SysAdmin',
       shell      => '/bin/bash',
       password   => '$6$xZ2Tljdh8zYaXxCf$Op/5Hrf4fd/3Ayn2xVy5oopcdyf1Qp8Tf3.K2gAONA7LmOoJsaLoVjeeW7DXVnv3Y.qf2qq7dsWSUiAyLiJJM1',
       managehome => true,
+    }
+
+    sudo::conf { $ssh_user:
+      content => "${ssh_user} ALL=(ALL) NOPASSWD: ALL",
     }
   }
 
@@ -257,8 +264,8 @@ ontoportal ALL = NOPASSWD: ONTOPORTAL, NGINX, NCBO_CRON, SOLR, FSHTTPD, FSBACKEN
     # config_file_replace => false,
   }
 
-  sudo::conf { 'opadmin':
-    content => 'opadmin ALL=(ALL) NOPASSWD: ALL',
+  sudo::conf { $ssh_user:
+    content => "$ssh_user ALL=(ALL) NOPASSWD: ALL",
   }
 
   sudo::conf { 'appliance':
