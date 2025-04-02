@@ -57,7 +57,7 @@ class ontoportal::appliance::ui (
         'innodb_flush_log_at_trx_commit' => '0',
         'innodb_file_per_table'          => '',
         'innodb_flush_method'            => 'O_DIRECT',
-        'character-set-server'           => 'utf8',
+        'character-set-server'           => 'utf8mb4',
       },
     },
   }
@@ -68,6 +68,8 @@ class ontoportal::appliance::ui (
     password => '*EBE8A8D53522BAC12B99F606FC3C3757742DE6FB',
     host     => 'localhost',
     grant    => ['ALL'],
+    charset  => 'utf8mb4',
+    collate  => 'utf8mb4_unicode_ci',
   }
 
   class { 'memcached':
