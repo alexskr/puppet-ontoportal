@@ -4,7 +4,8 @@
 
 [Unit]
 Description=Initial Ontoportal Appliance reconfiguration which runs only on first boot.
-After=network-online.target cloud-final.service 4s-boss.service 4s-backend.service 4s-httpd.service redis-server-goo.service redis-server-http.service redis-server-persistent.service nginx.service
+After=network-online.target multi-user.target
+Wants=network-online.target
 ConditionPathExists=<%= $app_root%>/firstboot
 
 [Service]
@@ -15,7 +16,7 @@ ExecStart=<%= $app_root%>/virtual_appliance/utils/bootstrap/firstboot.rb
 ExecStartPost=/usr/bin/rm <%= $app_root%>/firstboot
 User=ontoportal
 Group=ontoportal
-TimeoutSec=0
+TimeoutSec=180
 StandardOutput=journal+console
 
 [Install]
