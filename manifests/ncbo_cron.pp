@@ -67,7 +67,7 @@ class ontoportal::ncbo_cron (
   # we are using systemd private tmp
   file { ['/etc/cron.d/ncbo_cron_tmpclean']:
     ensure  => present,
-    content => '00 05 * * * root find /tmp/systemd-private-*-ncbo_cron.service-*/tmp/* ! -name ruby-uuid -mtime +1 -delete',
+    content => '00 05 * * * root find /tmp/systemd-private-*-ncbo_cron.service-*/tmp/* ! -name ruby-uuid -mtime +1 -delete\n',
     owner   => 'root',
     group   => 'root',
     mode    => '0644',
@@ -82,7 +82,7 @@ class ontoportal::ncbo_cron (
 
   systemd::tmpfile { 'ncbo_cron.conf':
     ensure  => present,
-    content => "d /var/run/ncbo_cron 0755 $owner $group"
+    content => "d /run/ncbo_cron 0755 $owner $group"
   }
 
   systemd::unit_file { 'ncbo_cron.service':

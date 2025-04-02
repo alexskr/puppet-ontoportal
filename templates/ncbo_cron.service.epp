@@ -9,14 +9,14 @@ Description=ncbo_cron service
 After=network.target
 
 [Service]
-ExecStart=<%= $app_path %>/bin/ncbo_cron --daemon -u <%= $user %> -G <%= $group %> -P /var/run/ncbo_cron/ncbo_cron.pid
+Type=forking
+ExecStart=<%= $app_path %>/bin/ncbo_cron --daemon -P /run/ncbo_cron/ncbo_cron.pid
 ExecStop=/usr/bin/kill -QUIT $MAINPID
 ExecReload=/usr/bin/kill -USR2 $MAINPID
 SyslogIdentifier=ncbo_cron
 User=<%= $user %>
 Group=<%= $group %>
-PIDFile=/var/run/ncbo_cron/ncbo_cron.pid
-PermissionsStartOnly=false
+PIDFile=/run/ncbo_cron/ncbo_cron.pid
 TimeoutStopSec=62
 PrivateTmp=yes
 WorkingDirectory=<%= $app_path %>
