@@ -4,7 +4,8 @@
 | -%>
 [Unit]
 Description=AllegroGraph service
-After=network.target
+After=network-online.target
+Wants=network-online.target
 
 [Service]
 Type=forking
