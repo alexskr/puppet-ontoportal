@@ -1,15 +1,17 @@
 #
-# Description: This class manages API/rest intra for ontoportal
+# Description: This class manages API/rest (ontologies_api) intra for ontoportal
 #
 class ontoportal::ontologies_api (
   Enum['staging', 'production', 'appliance', 'development'] $environment = 'staging',
-  Boolean $install_ruby            = true,
+  Boolean $manage_ruby            = true,
   String $ruby_version             = '3.1.6',
-  String $owner                    = 'ontoportal',
-  String $group                    = 'ontoportal',
+  String $admin_user               = 'ontoportal',
+  String $service_account          = 'ontoportal-backend',
+  Boolean $manage_service_account  = true,
+  String $data_group               = 'ontoportal-data',
   Integer $logrotate_nginx         = 180,
   Integer $logrotate_unicorn       = 180,
-  Stdlib::Absolutepath $app_root   = '/opt/ontoportal/ontologies_api',
+  Stdlib::Absolutepath $app_dir    = '/opt/ontoportal/ontologies_api',
   Stdlib::Host $domain             = 'data.demo.ontoportal.org',
   $slices = [], #used as SAN for letsencrypt
   Boolean $enable_https            = true,
@@ -17,9 +19,10 @@ class ontoportal::ontologies_api (
   Boolean $manage_letsencrypt      = false,
   Stdlib::Absolutepath $ssl_cert   = "/etc/letsencrypt/live/${domain}/cert.pem",
   Stdlib::Absolutepath $ssl_key    = "/etc/letsencrypt/live/${domain}/privkey.pem",
-  Stdlib::Absolutepath $ssl_fullchain  = "/etc/letsencrypt/live/${domain}/fullchain.pem",
+  Stdlib::Absolutepath $ssl_fullchain = "/etc/letsencrypt/live/${domain}/fullchain.pem",
   Stdlib::Absolutepath $bundle_bin = '/usr/local/rbenv/shims/bundle',
-  Boolean $install_java            = true,
+  Stdlib::Absolutepath $log_dir    = '/var/log/ontoportal/ontologies_api',
+  Boolean $manage_java            = true,
   String $java_version             = 'openjdk-11-jre-headless',
   Stdlib::Port $port               = 80,
   Stdlib::Port $port_https         = 443,
@@ -29,6 +32,7 @@ class ontoportal::ontologies_api (
   Stdlib::Absolutepath $data_dir   = '/srv/ontoportal',
 ) {
   case $facts['os']['family'] {
+    # redhat is not fully supported
     'RedHat': {
       selinux::boolean { 'httpd_can_sendmail': }
       selinux::boolean { 'httpd_can_network_connect': }
@@ -57,34 +61,32 @@ class ontoportal::ontologies_api (
     }
   }
 
-  # ontoportal/deployer user needs sudo to restart unicorn on deployments
+  # ontoportal ops/deployer user needs sudo to restart unicorn on deployments
   sudo::conf { 'unicorn':
     priority => 55,
-    content  => "${owner} ALL=(ALL) NOPASSWD: /bin/systemctl stop unicorn, /bin/systemctl start unicorn, /bin/systemctl restart unicorn",
+    content  => "${admin_user} ALL=(ALL) NOPASSWD: /bin/systemctl stop unicorn, /bin/systemctl start unicorn, /bin/systemctl restart unicorn",
   }
 
-  File {
-    owner => 'root',
-    group => $group,
-    mode  => '0775',
+  if $manage_service_account {
+    include ontoportal::user::backend
   }
 
   #paths
-  file { [$app_root]:
+  file { [$app_dir]:
     ensure => directory,
-    owner  => $owner,
-    group  => $group,
+    owner  => $admin_user,
+    group  => $data_group,
     mode   => '0775',
   }
 
-  if $install_ruby and !defined(Ontoportal::Rbenv[$ruby_version]) {
+  if $manage_ruby and !defined(Ontoportal::Rbenv[$ruby_version]) {
     ontoportal::rbenv { $ruby_version: }
   }
 
   nginx::resource::upstream { 'ontologies_api':
     members => {
       'api' => {
-        server       => "unix:${app_root}/shared/tmp/sockets/unicorn.sock",
+        server       => "unix:/run/unicorn/unicorn.sock",
         fail_timeout => '0s',
       },
     },
@@ -137,21 +139,36 @@ class ontoportal::ontologies_api (
     proxy_set_header => ['X-Forwarded-For $proxy_add_x_forwarded_for', 'Host $http_host', 'X-Real-IP $remote_addr'],
   }
 
-  #java required for owlapi/owl validation
-  if $install_java {
+  # java is required for owlapi_wrapper
+  if $manage_java {
     class { 'java':
       package => $java_version,
     }
   }
 
+  $read_write_paths = [
+    '/run/unicorn', # pid, socket
+    $log_dir,
+    "${data_dir}/repository",
+    "${data_dir}/reports", # api can refresh reports. although that functionality should be moved to ncbo_cron
+  ]
+
+  $read_only_paths = [
+    "${app_dir}/virtual_appliance/utils", #contains ip look up util.  or maybe its better to move it to /usr/local/bin?
+    "${app_dir}/config", # contains site_config.rb
+    "${app_dir}/current", # app lives here
+  ]
+
   systemd::unit_file { 'unicorn.service':
     ensure  => 'present',
     content => epp ('ontoportal/unicorn.service.epp', {
-        'user'        => $owner,
-        'group'       => $group,
-        'app_root'    => $app_root,
-        'bundle_bin'  => $bundle_bin,
-        'environment' => $environment,
+        'user'             => $service_account,
+        'group'            => $service_account,
+        'app_dir'          => $app_dir,
+        'bundle_bin'       => $bundle_bin,
+        'environment'      => $environment,
+        'read_only_paths'  => $read_only_paths,
+        'read_write_paths' => $read_write_paths,
     }),
   }
   ~> service { 'unicorn':
@@ -162,7 +179,7 @@ class ontoportal::ontologies_api (
   }
 
   logrotate::rule { 'unicorn':
-    path         => "${app_root}/current/log/*.log",
+    path         => "${log_dir}/*.log",
     rotate       => $logrotate_unicorn,
     rotate_every => 'day',
     copytruncate => true,
@@ -170,7 +187,7 @@ class ontoportal::ontologies_api (
     compress     => true,
     missingok    => true,
     su           => true,
-    su_user      => $owner,
-    su_group     => $group,
+    su_user      => $service_account,
+    su_group     => $service_account,
   }
 }

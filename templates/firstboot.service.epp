@@ -1,21 +1,23 @@
  <%- |
- Stdlib::Absolutepath $app_root,
+ Stdlib::Absolutepath $firstboot_lockfile,
+ Stdlib::Absolutepath $firstboot_path,
+ String $user,
 | -%>
 
 [Unit]
 Description=Initial Ontoportal Appliance reconfiguration which runs only on first boot.
 After=network-online.target multi-user.target
 Wants=network-online.target
-ConditionPathExists=<%= $app_root%>/firstboot
+ConditionPathExists=<%= $firstboot_lockfile %>
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
 ExecStartPre=/usr/bin/sleep 5
-ExecStart=<%= $app_root%>/virtual_appliance/utils/bootstrap/firstboot.rb
-ExecStartPost=/usr/bin/rm <%= $app_root%>/firstboot
-User=ontoportal
-Group=ontoportal
+ExecStart=<%= $firstboot_path%>
+ExecStartPost=/usr/bin/rm <%= $firstboot_lockfile %>
+User=<%= $user%>
+Group=<%= $user%>
 TimeoutSec=180
 StandardOutput=journal+console
 

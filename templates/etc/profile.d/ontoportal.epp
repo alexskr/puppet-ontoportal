@@ -1,0 +1,20 @@
+ <%- |
+  String $admin_user,
+  Stdlib::Absolutepath $app_root_dir,
+  Stdlib::Absolutepath $log_dir,
+| -%>
+#useful aliases for OntoPortal
+alias suo="sudo su - <%= $admin_user %>"
+alias gtc="pushd <%= $app_root_dir %>/ncbo_cron"
+alias gta="pushd <%= $app_root_dir %>/ontologies_api/current"
+alias gtu="pushd <%= $app_root_dir %>/bioportal_web_ui/current"
+alias gtv="pushd <%= $app_root_dir %>/virtual_appliance"
+alias gtp="pushd /etc/puppetlabs/code/environments/production"
+alias tla="tail -fn 100 <%= $log_dir %>/ontologies_api/appliance.log"
+alias tlu="tail -fn 100 <%= $log_dir %>/puma-ui/appliance.log"
+alias tlc="tail -fn 100 <%= $log_dir %>/ncbo_cron/scheduler.log"
+alias oprestart="sudo /usr/local/bin/oprestart"
+alias opstart="sudo /usr/local/bin/opstart"
+alias opstop="sudo /usr/local/bin/opstop"
+alias runpuppet="/opt/ontoportal/virtual_appliance/utils/infra/run_masterless_puppet.sh"
+alias runpuppetnoop="/opt/ontoportal/virtual_appliance/utils/infra/run_masterless_puppet.sh noop"

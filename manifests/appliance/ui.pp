@@ -1,37 +1,42 @@
 ########################################################################
+#@memcached_max_memory = max memory for memcached
+#  can be integer representing max memory im MB, i.e 512, or persentage '10%' of available memory
 
 # this is more of a role than a profile.
 class ontoportal::appliance::ui (
-  Boolean $manage_firewall = $ontoportal::appliance::manage_firewall,
-  Boolean $manage_letsencrypt = $ontoportal::appliance::manage_letsencrypt,
-  $owner = $ontoportal::appliance::owner,
-  $group = $ontoportal::appliance::group,
-  $appliance_version = $ontoportal::appliance::appliance_version,
-  $ruby_version = $ontoportal::appliance::ui_ruby_version,
-  $data_dir = $ontoportal::appliance::data_dir,
-  $app_root_dir  = $ontoportal::appliance::app_root_dir,
-  $ui_domain_name = $ontoportal::appliance::ui_domain_name,
-  $api_domain_name = $ontoportal::appliance::api_domain_name,
-  $enable_https = true,
-  $puma_workers = undef,
+  String               $ui_domain_name,
+  Stdlib::Absolutepath $app_root_dir       = '/opt/ontoportal',
+  Stdlib::Absolutepath $log_dir            = '/var/log/ontoportal',
+
+  String $admin_user         = 'ontoportal-admin',
+  String $ui_user            = 'ontoportal-ui',
+  String $shared_group       = 'ontoportal',
+  String $ruby_version       = '3.1.6',
+
+  String  $group              = 'ontoportal-ui',
+  Boolean  $manage_firewall   = true,
+  Boolean  $manage_letsencrypt = false,
+  Boolean              $enable_https = true,
+  Optional[Integer]    $puma_workers   = undef,
+  String               $memcached_max_memory = '512',
 ) {
   if $manage_firewall {
     include ontoportal::firewall::http
   }
-
-
+  $owner = $admin_user
   class { 'ontoportal::bioportal_web_ui':
     environment        => 'appliance',
     ruby_version       => $ruby_version,
+    service_account    => $ui_user,
     owner              => $owner,
     group              => $group,
     manage_letsencrypt => $manage_letsencrypt,
     logrotate_nginx    => 7,
-    logrotate_rails    => 7,
-    app_root           => "${app_root_dir}/bioportal_web_ui",
+    logrotate_ui       => 7,
+    app_dir            => "${app_root_dir}/bioportal_web_ui",
     domain             => $ui_domain_name,
     slices             => [],
-    install_ruby       => true,
+    manage_ruby        => true,
     puma_workers       => $puma_workers,
   }
 
@@ -73,7 +78,7 @@ class ontoportal::appliance::ui (
   }
 
   class { 'memcached':
-    max_memory    => '512m',
+    max_memory    => $memcached_max_memory,
     max_item_size => '5M',
   }
 

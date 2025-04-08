@@ -3,23 +3,26 @@
 #
 define ontoportal::puma (
   String $app                        = $name,
-  String $owner                      = 'ontoportal',
-  String $group                      = 'ontoportal',
+  String $owner                      = 'ontoportal-ui',
+  String $group                      = 'ontoportal-ui',
+  String $admin_user                 = 'ontoportal-admin',
   String $rails_env                  = "staging",
   Optional[String] $unit_environment = undef,
-  Stdlib::Absolutepath $app_root,
+  Stdlib::Absolutepath $app_dir,
   Boolean $manage_nginx              = false,
   Optional[Integer] $puma_threads    = undef,
   Optional[Integer] $puma_workers    = $facts['processors']['count'],
   Stdlib::Absolutepath $bundle_bin   = '/usr/local/rbenv/shims/bundle',
+  Optional[Array[Stdlib::Absolutepath]] $read_write_paths = [],
+  Optional[Array[Stdlib::Absolutepath]] $read_only_paths = [],
   ){
-
+  $puma = "puma-${name}"
   # Define the upstream Puma socket
   if $manage_nginx {
-    nginx::resource::upstream { "puma-${app}":
+    nginx::resource::upstream { $puma:
       members => {
         'localhost' => {
-          server       => "unix:${app_root}/shared/tmp/sockets/puma.sock",
+          server       => "unix:/run/${puma}/puma.sock",
           fail_timeout => '0s',
       },}
     }
@@ -29,15 +32,17 @@ define ontoportal::puma (
   systemd::unit_file { "${app}.service":
     ensure  => 'present',
     content => epp ('ontoportal/puma.service.epp', {
-      'name'         => $app,
-      'user'         => $owner,
-      'group'        => $group,
-      'app_root'     => $app_root,
-      'bundle_bin'   => $bundle_bin,
-      'rails_env'    => $rails_env,
-      'environment'  => $environment,
-      'puma_threads' => $puma_threads,
-      'puma_workers' => $puma_workers,
+      'name'             => $puma,
+      'user'             => $owner,
+      'group'            => $group,
+      'app_dir'          => $app_dir,
+      'bundle_bin'       => $bundle_bin,
+      'rails_env'        => $rails_env,
+      'environment'      => $unit_environment,
+      'puma_threads'     => $puma_threads,
+      'puma_workers'     => $puma_workers,
+      'read_write_paths' => $read_write_paths,
+      'read_only_paths'  => $read_only_paths,
       }),
   }
   ~> service { "${app}.service":

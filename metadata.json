@@ -1,11 +1,12 @@
 {
   "name": "alexskr-ontoportal",
-  "version": "0.2.0",
+  "version": "4.0.0",
   "author": "alexskr",
   "summary": "",
   "license": "Apache-2.0",
   "source": "",
   "dependencies": [
+     { "name": "puppetlabs/accounts", "version_requirement": ">= 8.2.2 < 9.0.0" },
      { "name": "puppetlabs/stdlib", "version_requirement": ">= 4.25.0 < 7.0.0" },
      { "name": "puppetlabs/firewall", "version_requirement": ">= 8.0.0 < 9.0.0"  },
      { "name": "puppetlabs/concat", "version_requirement": ">= 4.0.0 < 5.0.0" },
@@ -41,46 +42,28 @@
   ],
   "operatingsystem_support": [
     {
-      "operatingsystem": "CentOS",
-      "operatingsystemrelease": [
-        "7"
-      ]
-    },
-    {
-      "operatingsystem": "OracleLinux",
-      "operatingsystemrelease": [
-        "7"
-      ]
-    },
-    {
       "operatingsystem": "RedHat",
       "operatingsystemrelease": [
-        "8"
-      ]
-    },
-    {
-      "operatingsystem": "Scientific",
-      "operatingsystemrelease": [
-        "7"
+        "9"
       ]
     },
     {
       "operatingsystem": "Debian",
       "operatingsystemrelease": [
-        "10"
+        "12"
       ]
     },
     {
       "operatingsystem": "Ubuntu",
       "operatingsystemrelease": [
-        "18.04"
+        "22.04"
       ]
     }
   ],
   "requirements": [
     {
       "name": "puppet",
-      "version_requirement": ">= 6.21.0 < 8.0.0"
+      "version_requirement": ">= 7.21.0 < 8.0.0"
     }
   ],
   "pdk-version": "2.1.1",

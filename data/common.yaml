@@ -1,1 +1,34 @@
---- {}
+---
+
+# hiera/common.yaml
+#ontoportal::appliance::app_root_dir: "/opt/ontoportal"
+#ontoportal::appliance::log_dir: "/var/log/ontoportal"
+#ontoportal::appliance::data_dir: "/srv/ontoportal"
+#ontoportal::appliance::tmp_dir: "/tmp/ontoportal"
+
+#ontoportal::appliance::admin_user: "ontoportal-admin"
+#ontoportal::appliance::backend_user: "ontoportal-backend"
+#ontoportal::appliance::ui_user: "ontoportal-ui"
+#ontoportal::appliance::shared_group: "ontoportal"
+
+#ontoportal::appliance::include_ui: true
+#ontoportal::appliance::include_api: true
+#ontoportal::appliance::include_ncbo_cron: false
+
+#ontoportal::appliance::manage_firewall: true
+#ontoportal::appliance::manage_letsencrypt: false
+#ontoportal::appliance::enable_https: true
+
+#ontoportal::appliance::ui_domain_name: "ui.example.org"
+#ontoportal::appliance::api_domain_name: "api.example.org"
+
+#ontoportal::appliance::ui_ruby_version: "3.1.6"
+#ontoportal::appliance::api_ruby_version: "3.1.6"
+#ontoportal::appliance::appliance_version: "4.0"
+
+#ontoportal::appliance::goo_cache_maxmemory: "512M"
+#ontoportal::appliance::http_cache_maxmemory: "512M"
+
+#ontoportal::appliance::api_port: 8080
+#ontoportal::appliance::api_port_https: 8443
+#ontoportal::appliance::triple_store: "agraph"

@@ -1,13 +1,15 @@
  <%- |
+ String $name,
  String $user,
  String $group,
  String $rails_env,
  Optional[String] $environment,
  Optional[Integer] $puma_threads,
  Optional[Integer] $puma_workers,
- Stdlib::Absolutepath $app_root,
+ Stdlib::Absolutepath $app_dir,
  Stdlib::Absolutepath $bundle_bin,
- String $name
+ Array[Stdlib::Absolutepath] $read_write_paths,
+ Array[Stdlib::Absolutepath] $read_only_paths,
 | -%>
 
 
@@ -32,12 +34,35 @@ WatchdogSec=60
 # # Preferably configure a non-privileged user
 User=<%= $user %>
 Group=<%= $group %>
-TimeoutStopSec=62
+TimeoutStopSec=90
 PrivateTmp=yes
+ExecStop=/usr/bin/kill -QUIT $MAINPID
+ExecReload=/usr/bin/kill -USR2 $MAINPID
+User=<%= $user %>
+Group=<%= $group %>
+PrivateTmp=yes
+ProtectSystem=full
+ProtectHome=yes
+PrivateTmp=yes
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+RestrictRealtime=yes
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+<% if $read_write_paths { -%>
+ReadWritePaths=<%= $read_write_paths.join(' ') %>
+<% } -%>
+<% if $read_only_paths { -%>
+ReadOnlyPaths=<%= $read_only_paths.join(' ') %>
+<% } -%>
+RuntimeDirectory=<%= $name %>
 
 # # The path to your application code root directory.
 # # Also replace the "<YOUR_APP_PATH>" placeholders below with this path.
-WorkingDirectory=<%= $app_root %>/current
+WorkingDirectory=<%= $app_dir %>/current
 
 # # Helpful for debugging socket activation, etc.
 # # Environment=PUMA_DEBUG=1
@@ -49,14 +74,14 @@ Environment="WEB_CONCURRENCY=<%= $puma_workers %>"
 Environment="RAILS_MAX_THREAD=<%= $puma_threads %>"
 <% } -%>
 
-ExecStart=<%= $bundle_bin %> exec puma -C <%= $app_root %>/current/config/puma.rb
-#ExecReload=<%= $bundle_bin %> exec pumactl -S <%= $app_root %>/shared/tmp/pids/puma.state
+ExecStart=<%= $bundle_bin %> exec puma -C <%= $app_dir %>/current/config/puma.rb
+#ExecReload=<%= $bundle_bin %> exec pumactl -S <%= $app_dir %>/shared/tmp/pids/puma.state
 # do hot restart
 ExecReload="/bin/kill -USR2 $MAINPID"
 
 RestartSec=1
 Restart=on-failure
 
-SyslogIdentifier=puma-<%= $name %>
+SyslogIdentifier=<%= $name %>
 [Install]
 WantedBy=multi-user.target

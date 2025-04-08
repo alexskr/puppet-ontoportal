@@ -21,8 +21,8 @@ class ontoportal::solr (
   Stdlib::Absolutepath $config_dir = "${var_dir}/config",
   String $owner                    = 'solr',
   String $group                    = 'solr',
-  String $deployeruser             = 'ontoportal',
-  String $deployergroup            = 'ontoportal',
+  String $deployeruser             = 'ontoportal-admin',
+  String $deployergroup            = 'ontoportal-admin',
   Optional[String] $solr_heap      = undef,
   Boolean $newrelic                = false,
   String $newrelic_agent_version   = '7.11.1',
@@ -100,15 +100,16 @@ class ontoportal::solr (
     "${data_dir}/prop_search_core2/core.properties",
   ]
 
-  # file { $data_dir:
-  #   ensure    => directory,
-  #   owner     => $owner,
-  #   group     => $group,
-  #   mode      => '0755',
-  #   require   => File[$var_dir],
-  #   #require  => Class['solr'],
-  #   subscribe => Class['solr'],
-  # }
+  #  file { $data_dir:
+  #  ensure    => directory,
+  #  owner     => $owner,
+  #  group     => $group,
+  #  mode      => '0755',
+  #  require   => File[$var_dir],
+  #  #require  => Class['solr'],
+  #  subscribe => Class['solr'],
+  #}
+
   file { $var_dir:
     ensure => directory,
     mode   => '0755',

@@ -15,28 +15,32 @@
 class ontoportal::bioportal_web_ui (
   Enum['staging', 'production', 'appliance', 'development'] $environment = 'staging',
   String $ruby_version             = '3.1.6',
-  String $owner                    = 'ontoportal',
-  String $group                    = 'ncbo',
+  String $owner                    = 'ontoportal-admin',
+  String $group                    = 'ontoportal-admin',
+  String $service_account          = 'ontoportal-ui',
   Boolean $enable_nginx_status     = true,
   Integer $logrotate_nginx         = 400,
-  Integer $logrotate_rails         = 14,
+  Integer $logrotate_ui            = 14,
   Integer $puma_workers            = $facts['processors']['count']/2,
-  Stdlib::Absolutepath $app_root   = '/opt/ontoportal/bioportal_web_ui',
-  $domain                          = 'demo.ontoportal.org',
-  $slices = [], #used as SAN for letsencrypt
+  Stdlib::Absolutepath $app_dir    = '/opt/ontoportal/bioportal_web_ui',
+  Stdlib::Absolutepath $log_dir    = '/var/log/ontoportal/ui',
+  String $domain                   = 'demo.ontoportal.org',
+  Optional[Array[String]] $slices = [], #used as SAN for letsencrypt
   Stdlib::Absolutepath $ssl_cert   = "/etc/letsencrypt/live/${domain}/cert.pem",
   Stdlib::Absolutepath $ssl_key    = "/etc/letsencrypt/live/${domain}/privkey.pem",
   Stdlib::Absolutepath $ssl_fullchain = "/etc/letsencrypt/live/${domain}/fullchain.pem",
   Boolean $manage_letsencrypt      = false,
   Boolean $enable_https            = true,
   Boolean $enable_https_redirect   = true,
-  Boolean $install_ruby            = true,
+  Boolean $manage_ruby             = true,
   Stdlib::Port $port               = 80,
   Boolean $manage_nginx_repo       = false,
+  Boolean $manage_firewall         = false,
   Stdlib::Absolutepath $bundle_bin = '/usr/local/rbenv/shims/bundle',
 ) {
-  include ontoportal::firewall::http
-
+  if $manage_firewall {
+    include ontoportal::firewall::http
+  }
   case $facts['os']['family'] {
     'RedHat': {
       require epel
@@ -54,7 +58,7 @@ class ontoportal::bioportal_web_ui (
 
   include ontoportal::yarn
 
-  if $install_ruby {
+  if $manage_ruby {
     ontoportal::rbenv { $ruby_version:
       global => true,
       # rubygems_version => '3.5.16',
@@ -62,30 +66,38 @@ class ontoportal::bioportal_web_ui (
     }
   }
 
-  file { '/var/log/rails':
+  file { $log_dir:
     ensure => directory,
-    owner  => $owner,
+    owner  => $service_account,
     group  => $group,
     mode   => '0770';
   }
 
   #Create rails directory structure
+
   file {
     default:
       ensure => directory,
       owner  => $owner,
       group  => $group;
-    [$app_root ,"${app_root}/shared","${app_root}/releases", "${app_root}/shared/system", "${app_root}/shared/tmp","${app_root}/shared/tmp/sockets"]:
-      mode   => '0775';
-    ["${app_root}/shared/log"]:
-      ensure => 'link',
-      target => '/var/log/rails',
-      force  => yes;
+
+    [
+      $app_dir,
+      "${app_dir}/shared",
+      "${app_dir}/releases",
+      "${app_dir}/shared/system"
+    ]:
+      mode => '0775';
+
+    "${app_dir}/shared/log":
+      ensure => link,
+      target => $log_dir,
+      force  => true;
   }
 
-  logrotate::rule { 'rails':
-    path          => '/var/log/rails/*.log',
-    rotate        => $logrotate_rails,
+  logrotate::rule { 'ui':
+    path          => "${log_dir}/*.log",
+    rotate        => $logrotate_ui,
     size          => '10M',
     delaycompress => true,
     copytruncate  => true,
@@ -94,9 +106,9 @@ class ontoportal::bioportal_web_ui (
     compress      => true,
     missingok     => true,
     # su          => true,
-    su_user       => $owner,
+    su_user       => $service_account,
     su_group      => $group,
-    postrotate    => "kill -HUP `cat ${app_root}/shared/tmp/pids/puma.pid`", #puma
+    postrotate    => "kill -HUP `cat /run/puma-ui/puma.pid`", #puma
   }
 
   $slices_fqdn = $slices.map |$item| { "${item}.${domain}" }
@@ -124,13 +136,27 @@ class ontoportal::bioportal_web_ui (
 
   $_enable_https_redirect = $enable_ssl and $enable_https_redirect
 
+  $read_write_paths = [
+    '/run/puma-ui', # pid, socket
+    $log_dir,
+  ]
+
+  $read_only_paths = [
+    "${app_dir}/virtual_appliance/utils", #contains ip look up util.  or maybe its better to move it to /usr/local/bin?
+    "${app_dir}/config", # contains site_config.rb
+    "${app_dir}/current", # app lives here
+  ]
+
   ontoportal::puma { 'ui':
-    owner        => $owner,
-    group        => $group,
-    app_root     => $app_root,
+    owner        => $service_account,
+    group        => $service_account,
+    admin_user   => $owner,
+    app_dir      => $app_dir,
     bundle_bin   => $bundle_bin,
     rails_env    => $environment,
-    # environment  => undef,
+    unit_environment   => undef,
+    read_only_paths  => $read_only_paths,
+    read_write_paths => $read_write_paths,
     # puma_threads => undef,
     puma_workers => $puma_workers,
   }
@@ -142,7 +168,7 @@ class ontoportal::bioportal_web_ui (
     ensure      => present,
     ssl         => $enable_ssl,
     ssl_only    => $_enable_https_redirect,
-    www_root    => "${app_root}/current/public",
+    www_root    => "${app_dir}/current/public",
     gzip_static => 'on',
     expires     => '1y',
     server      => 'ontoportal_web_ui',
@@ -155,7 +181,7 @@ class ontoportal::bioportal_web_ui (
   nginx::resource::upstream { 'puma-bioportal_web_ui':
     members => {
       'ui' => {
-        server       => "unix:${app_root}/shared/tmp/sockets/puma.sock",
+        server       => "unix:/run/puma-ui/puma.sock",
         fail_timeout => '0s',
       },
     },
@@ -184,7 +210,7 @@ class ontoportal::bioportal_web_ui (
     server_name    => [$domain] + $slices_fqdn,
     listen_port    => $port,
     listen_options => 'default_server',
-    www_root       => "${app_root}/current/public",
+    www_root       => "${app_dir}/current/public",
     try_files      => ['$uri/index.html', '$uri', '@puma-bioportal_web_ui'],
     ssl_redirect   => $_enable_https_redirect,
     index_files    => [],
