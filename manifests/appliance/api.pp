@@ -25,12 +25,13 @@ class ontoportal::appliance::api (
 
   User <| title == $admin_user |> { groups +> 'tomcat' } # FIXME might not need to do this?
   class { 'ontoportal::ncbo_cron':
-    environment  => 'appliance',
-    owner        => $backend_account,
-    group        => $data_group,
-    install_ruby => false,
-    app_path     => "${app_root_dir}/ncbo_cron",
-    repo_path    => "${data_dir}/repository",
+    environment => 'appliance',
+    owner       => $backend_account,
+    group       => $data_group,
+    manage_ruby => false,
+    manage_java => false,
+    app_path    => "${app_root_dir}/ncbo_cron",
+    repo_path   => "${data_dir}/repository",
   }
 
   class { 'ontoportal::ontologies_api':

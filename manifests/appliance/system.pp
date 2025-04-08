@@ -4,6 +4,7 @@ class ontoportal::appliance::system (
   Boolean $manage_firewall = true,
   Boolean $manage_selinux = false,
   String  $appliance_version,
+  String $java_pkg_name = 'openjdk-11-jre-headless',
 
 ) {
 
@@ -86,6 +87,10 @@ class ontoportal::appliance::system (
 
   stdlib::ensure_packages( $packages )
   stdlib::ensure_packages( $packages_purge, { ensure => 'absent' })
+
+  class { 'java':
+    package => $java_pkg_name,
+  }
 
   class { 'systemd':
     manage_resolved  => true,

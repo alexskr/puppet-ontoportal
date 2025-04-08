@@ -35,7 +35,7 @@ class ontoportal::appliance (
   Enum['4store', 'agraph', 'external'] $triple_store = 'agraph',
 
   # System integration options
-  Boolean $manage_firewall    = false,
+  Boolean $manage_firewall    = true,
   Boolean $manage_letsencrypt = false,
   Boolean $manage_selinux     = false,
   Boolean $manage_va_repo     = false,
@@ -45,12 +45,12 @@ class ontoportal::appliance (
   String $admin_user         = 'ontoportal-admin',
   String $backend_user       = 'ontoportal-backend',
   String $ui_user            = 'ontoportal-ui',
-  String $shared_group       = 'ontoportal',
+  String $shared_group       = 'ontoportal-data',
   String $sysadmin_user      = 'ubuntu',
 
   Boolean $manage_admin_user    = true,
   Boolean $manage_sysadmin_user = false,
-  Boolean $manage_shared_group  = false,
+  Boolean $manage_shared_group  = true,
 
   Array[String] $admin_sshkeys    = [],
   Array[String] $sysadmin_sshkeys = [],
@@ -149,8 +149,11 @@ class ontoportal::appliance (
     }
     Class['ontoportal::appliance::layout'] ->  Class['ontoportal::appliance::api']
   }
+
   sudo::conf { 'appliance':
-    source => 'puppet:///modules/ontoportal/etc/sudoers.d/appliance',
+    content => epp('ontoportal/etc/sudoers.d/appliance', {
+      'user'   => $admin_user,
+    }),
   }
 
   # wrapper for managing services

@@ -13,18 +13,18 @@
 #
 
 class ontoportal::ncbo_cron (
-  $environment          = 'staging',
-  $owner                = 'ncbo-deployer',
-  $group                = 'ncbo-deployer',
-  $app_path             = '/opt/ontoportal/ncbo_cron',
-  $service              = 'running',
-  $repo_path            = '/srv/ontoportal/repository',
-  $reposymlink          = undef, #"/srv/ncbo/share/env/${ncbo_environment}/repository",
-  $ruby_version         = '3.1.6',
-  $logrotate_days       = 356,
-  Boolean $install_java = true,
-  Boolean $install_ruby = true,
-  String $java_version  = 'openjdk-11-jre-headless',
+  $environment         = 'staging',
+  $owner               = 'ncbo-deployer',
+  $group               = 'ncbo-deployer',
+  $app_path            = '/opt/ontoportal/ncbo_cron',
+  $service             = 'running',
+  $repo_path           = '/srv/ontoportal/repository',
+  $reposymlink         = undef, #"/srv/ncbo/share/env/${ncbo_environment}/repository",
+  $ruby_version        = '3.1.6',
+  $logrotate_days      = 356,
+  Boolean $manage_java = true,
+  Boolean $manage_ruby = true,
+  String $java_version = 'openjdk-11-jre-headless',
 ) {
   require ontoportal::params
   case $facts['os']['family'] {
@@ -42,7 +42,7 @@ class ontoportal::ncbo_cron (
     }
   }
 
-  if $install_ruby and !defined(Ontoportal::Rbenv[$ruby_version]) {
+  if $manage_ruby and !defined(Ontoportal::Rbenv[$ruby_version]) {
     class { 'ontoportal::rbenv':
       ruby_version => $ruby_version,
     }
@@ -74,7 +74,7 @@ class ontoportal::ncbo_cron (
   }
 
   #java required for owlapi/owl validation
-  if $install_java {
+  if $manage_java {
     class { 'java':
       package => $java_version,
     }
