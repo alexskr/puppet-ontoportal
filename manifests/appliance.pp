@@ -35,11 +35,11 @@ class ontoportal::appliance (
   Enum['4store', 'agraph', 'external'] $triple_store = 'agraph',
 
   # System integration options
-  Boolean $manage_firewall = false,
+  Boolean $manage_firewall    = false,
   Boolean $manage_letsencrypt = false,
-  Boolean $manage_selinux = false,
-  Boolean $manage_va_repo = false,
-  Boolean $manage_ssh_user = true,
+  Boolean $manage_selinux     = false,
+  Boolean $manage_va_repo     = false,
+  Boolean $manage_ssh_user    = true,
 
   # Users & permissions
   String $admin_user         = 'ontoportal-admin',
@@ -48,9 +48,9 @@ class ontoportal::appliance (
   String $shared_group       = 'ontoportal',
   String $sysadmin_user      = 'ubuntu',
 
-  Boolean $manage_admin_user = true,
+  Boolean $manage_admin_user    = true,
   Boolean $manage_sysadmin_user = false,
-  Boolean $manage_shared_group = false,
+  Boolean $manage_shared_group  = false,
 
   Array[String] $admin_sshkeys    = [],
   Array[String] $sysadmin_sshkeys = [],
@@ -61,7 +61,7 @@ class ontoportal::appliance (
   Stdlib::Absolutepath $log_dir      = '/var/log/ontoportal',
 
   # Application settings
-  String $appliance_version          = '4.0',
+  String $appliance_version        = '4.0',
   Stdlib::Port $api_port           = 8080,
   Stdlib::Port $api_port_https     = 8443,
 
@@ -72,8 +72,8 @@ class ontoportal::appliance (
   String $api_ruby_version = $ui_ruby_version,
 
   # Memory tuning
-  String $goo_cache_maxmemory,
-  String $http_cache_maxmemory,
+  String $goo_cache_maxmemory  = '512M',
+  String $http_cache_maxmemory = '512M',
 
 ) {
   Class['ontoportal::appliance::system']
@@ -89,19 +89,19 @@ class ontoportal::appliance (
   $_manage_sysadmin_user = ($manage_sysadmin_user or $facts['packer_build']) and !$facts['ec2_metadata']
 
   class { 'ontoportal::appliance::user':
-    admin_user            => $admin_user,
-    sysadmin_user         => $sysadmin_user,
+    admin_user           => $admin_user,
+    sysadmin_user        => $sysadmin_user,
 
-    manage_sysadmin_user  => $_manage_sysadmin_user,
-    manage_shared_group   => $manage_shared_group,
+    manage_sysadmin_user => $_manage_sysadmin_user,
+    manage_shared_group  => $manage_shared_group,
 
     admin_sshkeys        => $admin_sshkeys,
     sysadmin_sshkeys     => $sysadmin_sshkeys,
   }
 
   file { '/etc/profile.d/ontoportal.sh':
-    owner  => 'root',
-    mode   => '0644',
+    owner   => 'root',
+    mode    => '0644',
     content => epp('ontoportal/etc/profile.d/ontoportal', {
       #  'data_dir'     => $data_dir,
       'app_root_dir' => $app_root_dir,
@@ -120,7 +120,6 @@ class ontoportal::appliance (
     include_api    => $include_api,
   }
 
-
   if $include_ui {
     class { 'ontoportal::appliance::ui':
       ui_domain_name     => $ui_domain_name,
@@ -136,17 +135,17 @@ class ontoportal::appliance (
 
   if $include_api {
     class { 'ontoportal::appliance::api':
-      api_domain_name     => $api_domain_name,
-      ruby_version        => $api_ruby_version,
-      owner              => $admin_user,
-      group               => $shared_group,
-      manage_letsencrypt  => $manage_letsencrypt,
-      goo_cache_maxmemory => $goo_cache_maxmemory,
+      api_domain_name      => $api_domain_name,
+      ruby_version         => $api_ruby_version,
+      owner                => $admin_user,
+      group                => $shared_group,
+      manage_letsencrypt   => $manage_letsencrypt,
+      goo_cache_maxmemory  => $goo_cache_maxmemory,
       http_cache_maxmemory => $http_cache_maxmemory,
-      api_port            => $api_port,
-      api_port_https      => $api_port_https,
-      enable_https        => true,
-      triple_store        => $triple_store,
+      api_port             => $api_port,
+      api_port_https       => $api_port_https,
+      enable_https         => true,
+      triple_store         => $triple_store,
     }
     Class['ontoportal::appliance::layout'] ->  Class['ontoportal::appliance::api']
   }
@@ -162,8 +161,8 @@ class ontoportal::appliance (
     group   => 'root',
     content => epp('ontoportal/usr/local/bin/opctl.epp', {
       'triple_store' => $triple_store,
-      'include_api'   => $include_api,
-      'include_ui'    => $include_ui,
+      'include_api'  => $include_api,
+      'include_ui'   => $include_ui,
     }),
   }
 
@@ -189,9 +188,9 @@ class ontoportal::appliance (
   systemd::unit_file { 'ontoportal-firstboot.service':
     ensure  => present,
     content => epp ('ontoportal/firstboot.service.epp', {
-      'firstboot_lockfile'  => "${app_root_dir}/config/firstboot",
-      'firstboot_path' => "${va_path}/utils/bootstrap/firstboot",
-      'user'           => $admin_user,
+      'firstboot_lockfile' => "${app_root_dir}/config/firstboot",
+      'firstboot_path'     => "${va_path}/utils/bootstrap/firstboot",
+      'user'               => $admin_user,
     }),
   }
   -> service { 'ontoportal-firstboot':
