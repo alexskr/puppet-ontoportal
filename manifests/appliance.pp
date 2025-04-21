@@ -1,4 +1,4 @@
-# @summary Role class for configuring the OntoPortal Appliance
+server_bootstrap_entrypoint.sh# @summary Role class for configuring the OntoPortal Appliance
 #
 # This class configures the base system for the OntoPortal virtual appliance.
 # It sets up users, system packages, system services, application directories, and roles for the UI/API.
@@ -242,7 +242,7 @@ class ontoportal::appliance (
     ensure  => present,
     content => epp ('ontoportal/firstboot.service.epp', {
         'firstboot_lockfile' => "${app_root_dir}/config/firstboot",
-        'firstboot_path'     => "${va_path}/utils/bootstrap/firstboot",
+        'firstboot_path'     => "${va_path}/utils/bootstrap/firstboot.rb",
         'user'               => $admin_user,
     }),
   }
