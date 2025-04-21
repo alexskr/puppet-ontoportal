@@ -3,10 +3,11 @@ class ontoportal::user::backend (
   String $group = 'ontoportal-backend',
   String $home  = '/nonexistent',
 ) {
-  group { $group:
-    ensure => present,
+  if $group == $user {
+    group { $group:
+      ensure => present,
+    }
   }
-
   user { $user:
     ensure     => present,
     comment    => 'service account for API and ncbo_cron',

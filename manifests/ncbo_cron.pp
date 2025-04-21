@@ -13,15 +13,17 @@
 #
 
 class ontoportal::ncbo_cron (
-  $environment         = 'staging',
-  $owner               = 'ncbo-deployer',
-  $group               = 'ncbo-deployer',
-  $app_path            = '/opt/ontoportal/ncbo_cron',
+  String $environment            = 'staging',
+  String $service_account        = 'op-backend',
+  String $admin_user             = 'op-admin',
+  String $group                  = 'opdata',
+  Stdlib::Absolutepath $app_dir  = '/opt/ontoportal/ncbo_cron',
+  Stdlib::Absolutepath $log_dir  = '/var/log/ontoportal/ncbo_cron',
   $service             = 'running',
-  $repo_path           = '/srv/ontoportal/repository',
-  $reposymlink         = undef, #"/srv/ncbo/share/env/${ncbo_environment}/repository",
-  $ruby_version        = '3.1.6',
-  $logrotate_days      = 356,
+  Stdlib::Absolutepath $data_dir = '/srv/ontoportal',
+  Stdlib::Absolutepath $repo_dir = "${data_dir}/repository",
+  String $ruby_version        = '3.1.6',
+  Integer $logrotate_days = 356,
   Boolean $manage_java = true,
   Boolean $manage_ruby = true,
   String $java_version = 'openjdk-11-jre-headless',
@@ -48,19 +50,23 @@ class ontoportal::ncbo_cron (
     }
   }
 
-  file { [$app_path]:
+  file { $app_dir:
     ensure  => directory,
-    owner   => $owner,
+    owner   => $admin_user,
     group   => $group ,
-    mode    => '0775',
+    mode    => '0750',
     require => Service['ncbo_cron'],
   }
+  -> file { "${app_dir}/log":
+    ensure => link,
+    target => $log_dir,
+  }
 
-  file { [$repo_path]:
+  file { $repo_dir:
     ensure => directory,
-    owner  => $owner,
-    group  => $group ,
-    mode   => '0775',
+    owner  => $service_account,
+    group  => $group,
+    mode   => '2770',
   }
 
   #/tmp clean up script - Deletes files that ncbo_cron is too lazy to delete
@@ -79,17 +85,20 @@ class ontoportal::ncbo_cron (
       package => $java_version,
     }
   }
-
+  $read_write_paths = [ $log_dir, $repo_dir, "${data_dir}/mgrep", "${data_dir}/reports" ]
+  $read_only_paths = ['/opt']
   systemd::tmpfile { 'ncbo_cron.conf':
     ensure  => present,
-    content => "d /run/ncbo_cron 0755 $owner $group"
+    content => "d /run/ncbo_cron 0755 $service_account $group"
   }
 
   systemd::unit_file { 'ncbo_cron.service':
     content => epp('ontoportal/ncbo_cron.service.epp', {
-        app_path => $app_path,
-        user     => $owner,
-        group    => $group,
+        app_dir => $app_dir,
+        user    => $service_account,
+        group   => $group,
+        read_write_paths => $read_write_paths,
+        read_only_paths  => $read_only_paths,
         }),
   }
   ~> service { 'ncbo_cron':
@@ -100,7 +109,7 @@ class ontoportal::ncbo_cron (
   }
 
   logrotate::rule { 'ncbo_cron':
-    path         => "${app_path}/logs/scheduler*.log",
+    path         => "${log_dir}/*.log",
     rotate       => $logrotate_days,
     minsize      => '10M',
     rotate_every => 'day',
@@ -109,7 +118,7 @@ class ontoportal::ncbo_cron (
     compress     => true,
     missingok    => true,
     su           => true,
-    su_user      => $owner,
+    su_user      => $service_account,
     su_group     => $group,
   }
 }

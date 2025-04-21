@@ -4,21 +4,20 @@
 
 # this is more of a role than a profile.
 class ontoportal::appliance::ui (
-  String               $ui_domain_name,
-  Stdlib::Absolutepath $app_root_dir       = '/opt/ontoportal',
-  Stdlib::Absolutepath $log_dir            = '/var/log/ontoportal',
+  String $ui_domain_name,
+  Stdlib::Absolutepath $app_root_dir,
+  Stdlib::Absolutepath $log_dir,
 
-  String $admin_user         = 'ontoportal-admin',
-  String $ui_user            = 'ontoportal-ui',
-  String $shared_group       = 'ontoportal',
-  String $ruby_version       = '3.1.6',
+  String $admin_user,
+  String $ui_user,
+  String $ruby_version,
 
-  String  $group              = 'ontoportal-ui',
-  Boolean  $manage_firewall   = true,
-  Boolean  $manage_letsencrypt = false,
-  Boolean              $enable_https = true,
-  Optional[Integer]    $puma_workers   = undef,
-  String               $memcached_max_memory = '512',
+  String $group,
+  Boolean $manage_firewall,
+  Boolean $manage_letsencrypt,
+  Boolean $enable_https,
+  Optional[Integer] $puma_workers   = undef,
+  String $memcached_max_memory = '512',
 ) {
   if $manage_firewall {
     include ontoportal::firewall::http

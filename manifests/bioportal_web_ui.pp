@@ -15,14 +15,16 @@
 class ontoportal::bioportal_web_ui (
   Enum['staging', 'production', 'appliance', 'development'] $environment = 'staging',
   String $ruby_version             = '3.1.6',
-  String $owner                    = 'ontoportal-admin',
-  String $group                    = 'ontoportal-admin',
-  String $service_account          = 'ontoportal-ui',
+  String $owner                    = 'op-admin',
+  String $admin_user               = 'op-admin',
+  String $group                    = 'op-admin',
+  String $service_account          = 'op-ui',
   Boolean $enable_nginx_status     = true,
   Integer $logrotate_nginx         = 400,
   Integer $logrotate_ui            = 14,
   Integer $puma_workers            = $facts['processors']['count']/2,
-  Stdlib::Absolutepath $app_dir    = '/opt/ontoportal/bioportal_web_ui',
+  Stdlib::Absolutepath $app_root_dir = '/opt/ontoportal',
+  Stdlib::Absolutepath $app_dir    = "${app_root_dir}/bioportal_web_ui",
   Stdlib::Absolutepath $log_dir    = '/var/log/ontoportal/ui',
   String $domain                   = 'demo.ontoportal.org',
   Optional[Array[String]] $slices = [], #used as SAN for letsencrypt
@@ -69,7 +71,7 @@ class ontoportal::bioportal_web_ui (
   file { $log_dir:
     ensure => directory,
     owner  => $service_account,
-    group  => $group,
+    group  => $admin_user,
     mode   => '0770';
   }
 
@@ -87,7 +89,7 @@ class ontoportal::bioportal_web_ui (
       "${app_dir}/releases",
       "${app_dir}/shared/system"
     ]:
-      mode => '0775';
+      mode => '0755';
 
     "${app_dir}/shared/log":
       ensure => link,
@@ -142,19 +144,19 @@ class ontoportal::bioportal_web_ui (
   ]
 
   $read_only_paths = [
-    "${app_dir}/virtual_appliance/utils", #contains ip look up util.  or maybe its better to move it to /usr/local/bin?
-    "${app_dir}/config", # contains site_config.rb
+    "${app_root_dir}/virtual_appliance/utils", #contains ip look up util.  or maybe its better to move it to /usr/local/bin?
+    "${app_root_dir}/config", # contains site_config.rb
     "${app_dir}/current", # app lives here
   ]
 
   ontoportal::puma { 'ui':
     owner        => $service_account,
     group        => $service_account,
-    admin_user   => $owner,
+    admin_user   => $admin_user,
     app_dir      => $app_dir,
     bundle_bin   => $bundle_bin,
     rails_env    => $environment,
-    unit_environment   => undef,
+    unit_environment => undef,
     read_only_paths  => $read_only_paths,
     read_write_paths => $read_write_paths,
     # puma_threads => undef,

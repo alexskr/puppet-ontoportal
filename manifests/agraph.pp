@@ -18,7 +18,7 @@ class ontoportal::agraph(
   Boolean $manage_fw          = false,
   Boolean $optimize_kernel    = false,
   Optional[String] $license   = undef,
-  Stdlib::Absolutepath $data_dir    = '/srv/ontoportal/data/agraph',
+  Stdlib::Absolutepath $data_dir    = '/srv/ontoportal/agraph',
   Stdlib::Absolutepath $app_path    = "/opt/agraph-${version}",
   Stdlib::Absolutepath $config_path = "/etc/agraph/agraph.cfg",
   Optional[Array] $fwsrc = undef,

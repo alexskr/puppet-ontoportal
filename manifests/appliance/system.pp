@@ -1,13 +1,11 @@
+# System integration options
 class ontoportal::appliance::system (
-
-  # System integration options
   Boolean $manage_firewall = true,
   Boolean $manage_selinux = false,
   String  $appliance_version,
   String $java_pkg_name = 'openjdk-11-jre-headless',
 
 ) {
-
   if $manage_firewall {
     require ontoportal::firewall
     include ontoportal::firewall::ssh
@@ -143,5 +141,4 @@ class ontoportal::appliance::system (
     path => '/etc/issue',
     line => 'OntoPortal Appliance IP: \4',
   }
-
 }

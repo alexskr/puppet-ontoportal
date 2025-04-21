@@ -1,9 +1,9 @@
 class ontoportal::appliance::user (
-  String $admin_user         = 'ontoportal-admin',
-  String $backend_user       = 'ontoportal-backend',
-  String $ui_user            = 'ontoportal-ui',
-  String $sysadmin_user      = 'ubuntu',
-  String $shared_group       = 'ontoportal-data', # this could be `ontoportal-data`
+  String $admin_user,
+  String $backend_user,
+  String $ui_user,
+  String $sysadmin_user,
+  String $shared_group,
   Boolean $manage_shared_group  = true,
   Boolean $manage_admin_user    = true,
   Boolean $manage_backend_user  = true,
@@ -18,7 +18,7 @@ class ontoportal::appliance::user (
       ensure => present,
     }
     $_shared_group = $shared_group
-    $_backend_user_group = $hared_group
+    $_backend_user_group = $shared_group
   } else {
     $_shared_group = undef
     $_backend_user_group = $backend_user
@@ -26,9 +26,9 @@ class ontoportal::appliance::user (
 
   if $manage_admin_user {
     class { 'ontoportal::user::admin':
-      user         => $admin_user,
-      shared_group => $_shared_group,
-      sshkeys      => $admin_sshkeys,
+      user    => $admin_user,
+      groups  => [$_backend_user_group, $ui_user],
+      sshkeys => $admin_sshkeys,
     }
   }
 
@@ -47,8 +47,8 @@ class ontoportal::appliance::user (
 
   if $manage_sysadmin_user {
     class { 'ontoportal::user::sysadmin':
-      user         => $sysadmin_user,
-      sshkeys      => $sysadmin_sshkeys,
+      user    => $sysadmin_user,
+      sshkeys => $sysadmin_sshkeys,
     }
   }
 }

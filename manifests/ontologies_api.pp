@@ -5,23 +5,26 @@ class ontoportal::ontologies_api (
   Enum['staging', 'production', 'appliance', 'development'] $environment = 'staging',
   Boolean $manage_ruby            = true,
   String $ruby_version             = '3.1.6',
-  String $admin_user               = 'ontoportal',
-  String $service_account          = 'ontoportal-backend',
+  String $admin_user               = 'op-admin',
+  String $service_account          = 'op-backend',
   Boolean $manage_service_account  = true,
-  String $data_group               = 'ontoportal-data',
+  String $data_group               = 'opdata',
   Integer $logrotate_nginx         = 180,
   Integer $logrotate_unicorn       = 180,
-  Stdlib::Absolutepath $app_dir    = '/opt/ontoportal/ontologies_api',
   Stdlib::Host $domain             = 'data.demo.ontoportal.org',
   $slices = [], #used as SAN for letsencrypt
   Boolean $enable_https            = true,
   Boolean $enable_https_redirect   = true,
   Boolean $manage_letsencrypt      = false,
+
+  Stdlib::Absolutepath $app_root_dir = '/opt/ontoportal',
+  Stdlib::Absolutepath $app_dir    = "${app_root_dir}/ontologies_api",
+  Stdlib::Absolutepath $bundle_bin = '/usr/local/rbenv/shims/bundle',
+  Stdlib::Absolutepath $log_dir    = '/var/log/ontoportal/ontologies_api',
   Stdlib::Absolutepath $ssl_cert   = "/etc/letsencrypt/live/${domain}/cert.pem",
   Stdlib::Absolutepath $ssl_key    = "/etc/letsencrypt/live/${domain}/privkey.pem",
   Stdlib::Absolutepath $ssl_fullchain = "/etc/letsencrypt/live/${domain}/fullchain.pem",
-  Stdlib::Absolutepath $bundle_bin = '/usr/local/rbenv/shims/bundle',
-  Stdlib::Absolutepath $log_dir    = '/var/log/ontoportal/ontologies_api',
+
   Boolean $manage_java            = true,
   String $java_version             = 'openjdk-11-jre-headless',
   Stdlib::Port $port               = 80,
@@ -72,11 +75,21 @@ class ontoportal::ontologies_api (
   }
 
   #paths
-  file { [$app_dir]:
+  file { [$app_dir, "${app_dir}/shared" ]:
     ensure => directory,
     owner  => $admin_user,
     group  => $data_group,
-    mode   => '0775',
+    mode   => '0750',
+  }
+  -> file { [$log_dir]:
+    ensure => directory,
+    owner  => $service_account,
+    group  => $data_group,
+    mode   => '0770',
+  }
+  -> file { "${app_dir}/shared/log":
+    ensure => link,
+    target => $log_dir,
   }
 
   if $manage_ruby and !defined(Ontoportal::Rbenv[$ruby_version]) {
@@ -154,16 +167,16 @@ class ontoportal::ontologies_api (
   ]
 
   $read_only_paths = [
-    "${app_dir}/virtual_appliance/utils", #contains ip look up util.  or maybe its better to move it to /usr/local/bin?
-    "${app_dir}/config", # contains site_config.rb
-    "${app_dir}/current", # app lives here
+    "/opt/ontoportal/virtual_appliance/utils", #contains ip look up util.  or maybe its better to move it to /usr/local/bin?
+#    "${app_dir}/config", # contains site_config.rb
+#    "${app_dir}/current", # app lives here
   ]
 
   systemd::unit_file { 'unicorn.service':
     ensure  => 'present',
     content => epp ('ontoportal/unicorn.service.epp', {
         'user'             => $service_account,
-        'group'            => $service_account,
+        'group'            => $data_group,
         'app_dir'          => $app_dir,
         'bundle_bin'       => $bundle_bin,
         'environment'      => $environment,

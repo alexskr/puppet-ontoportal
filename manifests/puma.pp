@@ -3,10 +3,10 @@
 #
 define ontoportal::puma (
   String $app                        = $name,
-  String $owner                      = 'ontoportal-ui',
-  String $group                      = 'ontoportal-ui',
-  String $admin_user                 = 'ontoportal-admin',
-  String $rails_env                  = "staging",
+  String $owner,
+  String $group,
+  String $admin_user,
+  String $rails_env,
   Optional[String] $unit_environment = undef,
   Stdlib::Absolutepath $app_dir,
   Boolean $manage_nginx              = false,
@@ -55,7 +55,7 @@ define ontoportal::puma (
   # deployer needs sudo to restart unicorn
   sudo::conf { "${app}.service":
     priority =>  55,
-    content =>   "${owner} ALL=(ALL) NOPASSWD: /bin/systemctl stop ${app}.service, /bin/systemctl start ${app}.service, /bin/systemctl restart ${app}.service",
+    content =>   "${admin_user} ALL=(ALL) NOPASSWD: /bin/systemctl stop ${app}.service, /bin/systemctl start ${app}.service, /bin/systemctl restart ${app}.service",
   }
 }
 

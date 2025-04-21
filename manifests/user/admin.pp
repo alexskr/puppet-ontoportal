@@ -1,6 +1,6 @@
 class ontoportal::user::admin (
-  String        $user         = 'ontoportal-admin',
-  String        $shared_group = 'ontoportal',
+  String        $user,
+  Array[String] $groups,
   String        $shell        = '/bin/bash',
   String        $home         = "/home/${user}",
   Boolean       $managehome   = true,
@@ -13,9 +13,7 @@ class ontoportal::user::admin (
     home       => $home,
     managehome => $managehome,
     group      => $user,
-    groups     => [
-      $shared_group,
-    ],
+    groups     => $groups,
     sshkeys    => $sshkeys,
   }
 
