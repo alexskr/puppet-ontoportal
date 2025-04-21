@@ -1,4 +1,4 @@
-server_bootstrap_entrypoint.sh# @summary Role class for configuring the OntoPortal Appliance
+# @summary Role class for configuring the OntoPortal Appliance
 #
 # This class configures the base system for the OntoPortal virtual appliance.
 # It sets up users, system packages, system services, application directories, and roles for the UI/API.
