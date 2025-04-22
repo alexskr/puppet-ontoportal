@@ -10,8 +10,18 @@
   String $ui_user,
   String $shared_group
 | -%>
-#!/bin/bash
-# Unified control script for OntoPortal stack
+#!/usr/bin/env bash
+# -----------------------------------------------------------------------------
+# Part of the OntoPortal Virtual Appliance Project
+# https://ontoportal.org
+#
+# Author: Alex Skrenchuk (@alexskr)
+# Copyright (c) 2025 Stanford University and the OntoPortal Alliance
+# SPDX-License-Identifier: Apache-2.0
+#
+# Description
+# Unified service control script for OntoPortal Appliance stack
+# -----------------------------------------------------------------------------
 
 RED=$(tput setaf 1)
 GRN=$(tput setaf 2)

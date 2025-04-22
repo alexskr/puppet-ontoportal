@@ -14,10 +14,10 @@ ConditionPathExists=<%= $firstboot_lockfile %>
 Type=oneshot
 RemainAfterExit=yes
 ExecStartPre=/usr/bin/sleep 5
-ExecStart=<%= $firstboot_path%>
+ExecStart=<%= $firstboot_path %>
 ExecStartPost=/usr/bin/rm <%= $firstboot_lockfile %>
-User=<%= $user%>
-Group=<%= $user%>
+User=<%= $user %>
+Group=<%= $user %>
 TimeoutSec=180
 StandardOutput=journal+console
 
