@@ -19,6 +19,8 @@ class ontoportal::appliance::layout (
     { path => "${app_root_dir}/config", owner => $admin_user, group => $shared_group, mode => '0755' },
     { path => "${app_root_dir}/virtual_appliance", owner => $admin_user, group => $admin_user, mode => '0755' },
     { path => "${app_root_dir}/.bundle", owner => $admin_user, group => $admin_user, mode => '0755' },
+    { path => '/usr/local/ontoportal', owner => 'root', group => 'root', mode => '0755' },
+    { path => '/usr/local/ontoportal/bin', owner => 'root', group => 'root', mode => '0755' },
   ]
 
   # this is currently handled by bioportal_web_ui class

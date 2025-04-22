@@ -4,6 +4,7 @@
   Stdlib::Absolutepath $log_dir,
 | -%>
 #useful aliases for OntoPortal
+export PATH=/usr/local/ontoportal/bin:$PATH
 alias suo="sudo su - <%= $admin_user %>"
 alias gtc="pushd <%= $app_root_dir %>/ncbo_cron"
 alias gta="pushd <%= $app_root_dir %>/ontologies_api/current"

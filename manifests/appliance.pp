@@ -183,7 +183,7 @@ class ontoportal::appliance (
   }
 
   # wrapper for managing services
-  file { '/usr/local/bin/opctl':
+  file { '/usr/local/ontoportal/bin/opctl':
     ensure  => file,
     mode    => '0755',
     owner   => 'root',
@@ -201,29 +201,33 @@ class ontoportal::appliance (
         'shared_group' => $shared_group,
     }),
   }
+  -> file { '/usr/local/bin/opctl':
+    ensure => simlink,
+    tartet => '/usr/local/ontoportal/bin/opctl',
+  }
 
   $va_path = "${app_root_dir}/virtual_appliance"
 
   # i don't really like it like this; but will fix it later
-  file { '/usr/local/bin/infra_discovery.rb':
+  file { '/usr/local/ontoportal/bin/infra_discovery.rb':
     ensure => file,
-    source => "file://${va_path}/utils/infra_discovery.rb",
+    source => "file://${va_path}/infra/infra_discovery.rb",
     owner  => 'root',
     group  => 'root',
     mode   => '0755',
   }
 
-  file { '/usr/local/bin/gen_tlscert':
+  file { '/usr/local/ontoportal/bin/gen_tlscert':
     ensure => file,
-    source => "file://${va_path}/utils/bootstrap/gen_tlscert",
+    source => "file://${va_path}/infra/gen_tlscert",
     owner  => 'root',
     group  => 'root',
     mode   => '0755',
   }
 
-  file { '/usr/local/bin/ec2meta':
+  file { '/usr/local/ontoportal/bin/ec2meta':
     ensure => file,
-    source => 'puppet:///modules/ontoportal/ec2meta',
+    source => "file://${va_path}/infra/ec2meta",
     owner  => 'root',
     group  => 'root',
     mode   => '0755',
