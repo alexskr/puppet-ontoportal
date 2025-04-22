@@ -205,17 +205,25 @@ class ontoportal::appliance (
   $va_path = "${app_root_dir}/virtual_appliance"
 
   # i don't really like it like this; but will fix it later
-  file { '/usr/local/bin/hostname_lookup.rb':
+  file { '/usr/local/bin/infra_discovery.rb':
     ensure => file,
-    source => "file://${va_path}/utils/hostname_lookup.rb",
+    source => "file://${va_path}/utils/infra_discovery.rb",
     owner  => 'root',
     group  => 'root',
     mode   => '0755',
   }
 
-  file { '/usr/local/bin/gen_tlscert.sh':
+  file { '/usr/local/bin/gen_tlscert':
     ensure => file,
-    source => "file://${va_path}/utils/bootstrap/gen_tlscert.sh",
+    source => "file://${va_path}/utils/bootstrap/gen_tlscert",
+    owner  => 'root',
+    group  => 'root',
+    mode   => '0755',
+  }
+
+  file { '/usr/local/bin/ec2meta':
+    ensure => file,
+    source => 'puppet:///modules/ontoportal/ec2meta',
     owner  => 'root',
     group  => 'root',
     mode   => '0755',
