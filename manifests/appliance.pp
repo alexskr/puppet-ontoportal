@@ -203,7 +203,7 @@ class ontoportal::appliance (
   }
   -> file { '/usr/local/bin/opctl':
     ensure => simlink,
-    tartet => '/usr/local/ontoportal/bin/opctl',
+    target => '/usr/local/ontoportal/bin/opctl',
   }
 
   $va_path = "${app_root_dir}/virtual_appliance"
