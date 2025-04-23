@@ -57,6 +57,12 @@ class ontoportal::ncbo_cron (
     mode    => '0750',
     require => Service['ncbo_cron'],
   }
+  -> file { $log_dir:
+    ensure => directory,
+    owner  => $service_account,
+    group  => $group,
+    mode   => '0750',
+  }
   -> file { "${app_dir}/log":
     ensure => link,
     target => $log_dir,
