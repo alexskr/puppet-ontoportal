@@ -13,7 +13,7 @@ Description=Unicorn server
 After=network.target
 
 [Service]
-Umask=0002
+Umask=0007
 ExecStart=<%= $bundle_bin %> exec unicorn -c config/unicorn.rb -E <%= $environment %>
 ExecStop=/usr/bin/kill -QUIT $MAINPID
 ExecReload=/usr/bin/kill -USR2 $MAINPID
@@ -30,7 +30,7 @@ RestrictRealtime=yes
 ProtectKernelModules=yes
 ProtectKernelTunables=yes
 ProtectControlGroups=yes
-RestrictSUIDSGID=yes
+RestrictSUIDSGID=no # oLD sets SGID bit on repo dir
 ReadWritePaths=<%= $read_write_paths.join(' ') %>
 ReadOnlyPaths=<%= $read_only_paths.join(' ') %>
 RuntimeDirectory=unicorn

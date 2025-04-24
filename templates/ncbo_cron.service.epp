@@ -11,7 +11,7 @@ Description=ncbo_cron service
 After=network.target
 
 [Service]
-Umask=0002
+Umask=0007
 Type=forking
 ExecStart=<%= $app_dir %>/bin/ncbo_cron --daemon -P /run/ncbo_cron/ncbo_cron.pid
 ExecStop=/usr/bin/kill -QUIT $MAINPID
@@ -28,7 +28,7 @@ RestrictRealtime=yes
 ProtectKernelModules=yes
 ProtectKernelTunables=yes
 ProtectControlGroups=yes
-RestrictSUIDSGID=yes
+RestrictSUIDSGID=no # oLD sets SGID bit on repo dir
 ReadWritePaths=<%= $read_write_paths.join(' ') %>
 ReadOnlyPaths=<%= $read_only_paths.join(' ') %>
 PIDFile=/run/ncbo_cron/ncbo_cron.pid
