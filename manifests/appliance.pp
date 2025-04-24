@@ -254,7 +254,7 @@ class ontoportal::appliance (
     ensure  => present,
     content => epp ('ontoportal/firstboot.service.epp', {
         'firstboot_lockfile' => "${app_root_dir}/config/firstboot",
-        'firstboot_path'     => "${va_path}/utils/bootstrap/firstboot.rb",
+        'firstboot_path'     => "${va_path}/infra/firstboot.rb",
         'user'               => $admin_user,
     }),
   }
