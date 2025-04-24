@@ -225,9 +225,9 @@ class ontoportal::appliance (
     mode   => '0755',
   }
 
-  file { '/usr/local/ontoportal/bin/ec2meta':
+  file { '/usr/local/ontoportal/bin/cloudmeta':
     ensure => file,
-    source => "file://${va_path}/infra/ec2meta",
+    source => "file://${va_path}/infra/cloudmeta",
     owner  => 'root',
     group  => 'root',
     mode   => '0755',
