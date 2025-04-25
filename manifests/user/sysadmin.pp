@@ -6,12 +6,6 @@ class ontoportal::user::sysadmin (
   Optional[String] $password   = undef,
   Boolean          $managehome = true,
 ) {
-  # don't set password for ubuntu user in ami
-  $_password = $facts['ec2_metadata'] ? {
-    undef   => $password, # not on AWS
-    default => undef,     # on AWS, disable password
-  }
-
   accounts::user { $user:
     ensure     => present,
     comment    => $comment,
