@@ -1,5 +1,5 @@
 class ontoportal::user::ui (
-  String $user = 'ontoportal-ui',
+  String $user = 'op-ui',
 ) {
   group { $user:
     ensure => present,
