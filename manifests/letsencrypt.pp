@@ -31,7 +31,8 @@ define ontoportal::letsencrypt(
     $_cron_success_command = $cron_success_command
   }
 
-  $_domains = concat ( [$domain], $san )
+  $_domains = concat ([$domain], $san)
+
   letsencrypt::certonly { $domain:
     domains              => $_domains,
     webroot_paths        => $webroot_paths,

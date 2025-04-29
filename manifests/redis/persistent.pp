@@ -12,7 +12,7 @@ class ontoportal::redis::persistent(
   $fwsrc = lookup("ontologies_api_nodes_${facts['ncbo_environment']}", undef, undef, [])
     + lookup('ips.vpn', undef, undef, [])
     + lookup("mgrep_${facts['ncbo_environment']}", undef, undef, [])
-  ){
+) {
   include ontoportal::redis
   $redis_role = 'persistent'
 

@@ -11,7 +11,7 @@ class ontoportal::user::sysadmin (
     comment    => $comment,
     shell      => $shell,
     home       => "/home/${user}",
-    password   => $_password,
+    password   => $password,
     managehome => $managehome,
     sshkeys    => $sshkeys,
   }
