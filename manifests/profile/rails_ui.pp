@@ -1,12 +1,12 @@
 class ontoportal::profile::rails_ui (
   Enum['staging', 'production', 'appliance', 'development'] $environment = 'staging',
   String $ruby_version             = '3.1.6',
-  String $owner                    = 'op-admin',
+  # String $owner                    = 'op-admin',
   String $admin_user               = 'op-admin',
   String $group                    = 'op-admin',
   String $service_account          = 'op-ui',
   Integer $logrotate_ui            = 14,
-  Integer $puma_workers            = $facts['processors']['count']/2,
+  Integer $puma_workers            = max(1, $facts['processors']['count']/2),
   Stdlib::Absolutepath $app_root_dir = '/opt/ontoportal',
   Stdlib::Absolutepath $app_dir    = "${app_root_dir}/bioportal_web_ui",
   Stdlib::Absolutepath $log_dir    = '/var/log/ontoportal/ui',
@@ -45,7 +45,7 @@ class ontoportal::profile::rails_ui (
   file { $log_dir:
     ensure => directory,
     owner  => $service_account,
-    group  => $admin_user,
+    group  => $group,
     mode   => '0770';
   }
 
@@ -53,7 +53,7 @@ class ontoportal::profile::rails_ui (
   file {
     default:
       ensure => directory,
-      owner  => $owner,
+      owner  => $admin_user,
       group  => $group;
 
     [
