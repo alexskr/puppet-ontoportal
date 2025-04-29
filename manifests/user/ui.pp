@@ -7,7 +7,7 @@ class ontoportal::user::ui (
 
   user { $user:
     ensure     => present,
-    comment    => "service account for puma-ui",
+    comment    => 'Service Account for puma-ui',
     system     => true,
     shell      => '/usr/sbin/nologin',
     managehome => false,

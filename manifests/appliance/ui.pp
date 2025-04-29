@@ -18,25 +18,34 @@ class ontoportal::appliance::ui (
   Boolean $enable_https,
   Optional[Integer] $puma_workers   = undef,
   String $memcached_max_memory = '512',
+
+  Integer $logrotate_ui = 7,
+  Integer $logrotate_nginx = 14,
 ) {
   if $manage_firewall {
     include ontoportal::firewall::http
   }
   $owner = $admin_user
-  class { 'ontoportal::bioportal_web_ui':
-    environment        => 'appliance',
-    ruby_version       => $ruby_version,
-    service_account    => $ui_user,
-    owner              => $owner,
-    group              => $group,
+
+  class { 'ontoportal::profile::rails_ui':
+    environment     => 'appliance',
+    ruby_version    => $ruby_version,
+    service_account => $ui_user,
+    owner           => $owner,
+    group           => $group,
+    logrotate_ui    => $logrotate_ui,
+    app_dir         => "${app_root_dir}/bioportal_web_ui",
+    manage_ruby     => true,
+    puma_workers    => $puma_workers,
+  }
+
+  class { 'ontoportal::nginx::ui_proxy':
+    enable_https       => $enable_https,
     manage_letsencrypt => $manage_letsencrypt,
-    logrotate_nginx    => 7,
-    logrotate_ui       => 7,
+    logrotate_nginx    => $logrotate_nginx,
     app_dir            => "${app_root_dir}/bioportal_web_ui",
     domain             => $ui_domain_name,
     slices             => [],
-    manage_ruby        => true,
-    puma_workers       => $puma_workers,
   }
 
   # proxy for BioMixer
