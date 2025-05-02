@@ -13,20 +13,20 @@
 #
 
 class ontoportal::ncbo_cron (
-  String $environment            = 'staging',
+  String $environment            = 'appliance',
   String $service_account        = 'op-backend',
   String $admin_user             = 'op-admin',
   String $group                  = 'opdata',
   Stdlib::Absolutepath $app_dir  = '/opt/ontoportal/ncbo_cron',
   Stdlib::Absolutepath $log_dir  = '/var/log/ontoportal/ncbo_cron',
-  $service             = 'running',
+  $service                       = 'running',
   Stdlib::Absolutepath $data_dir = '/srv/ontoportal',
   Stdlib::Absolutepath $repo_dir = "${data_dir}/repository",
-  String $ruby_version        = '3.1.6',
-  Integer $logrotate_days = 356,
-  Boolean $manage_java = true,
-  Boolean $manage_ruby = true,
-  String $java_version = 'openjdk-11-jre-headless',
+  String $ruby_version           = '3.1.6',
+  Integer $logrotate_days        = 356,
+  Boolean $manage_java           = true,
+  Boolean $manage_ruby           = true,
+  String $java_version           = 'openjdk-11-jre-headless',
 ) {
   require ontoportal::params
   case $facts['os']['family'] {
@@ -37,7 +37,7 @@ class ontoportal::ncbo_cron (
     'Debian': {
       stdlib::ensure_packages([
         'file', # needed by oLD MIME detection
-        'libwww-perl', # needed for 4s-dump # required for 4s-dump to work
+        'libwww-perl', # needed for 4s-dump
         'libxml2-dev',
         'raptor2-utils',
       ])
@@ -45,8 +45,8 @@ class ontoportal::ncbo_cron (
   }
 
   if $manage_ruby and !defined(Ontoportal::Rbenv[$ruby_version]) {
-    class { 'ontoportal::rbenv':
-      ruby_version => $ruby_version,
+    ontoportal::rbenv { $ruby_version:
+      global =>  true,
     }
   }
 

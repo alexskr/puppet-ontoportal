@@ -1,18 +1,15 @@
-class ontoportal::nginx::ui_proxy (
-  String $domain                   = 'demo.ontoportal.org',
-  Boolean $canonical_redirect      = false,
-  Boolean $enable_nginx_status     = true,
-  Boolean $catch_all               = true,
+class ontoportal::nginx::proxy_ui (
+  Stdlib::Host $domain,
+  Boolean $catch_all               = true, #must be disabled for canonical redirect or block all non-canonical domains
   Integer $logrotate_nginx         = 180,
-  Stdlib::Absolutepath $app_dir    = "/opt/bioportal_web_ui",
-  Optional[Array[String]] $slices = [], #used as SAN for letsencrypt
-  Stdlib::Absolutepath $ssl_key    = "/etc/letsencrypt/live/${domain}/privkey.pem",
-  Stdlib::Absolutepath $ssl_fullchain = "/etc/letsencrypt/live/${domain}/fullchain.pem",
+  Stdlib::Absolutepath $app_dir,
+  Optional[Array[String]] $slices  = [], #used as SAN for letsencrypt
+  Optional[Stdlib::Absolutepath] $ssl_key,
+  Optional[Stdlib::Absolutepath] $ssl_cert,
   Boolean $manage_letsencrypt      = false,
   Boolean $enable_https            = true,
-  Boolean $enable_https_redirect   = true,
+  Boolean $enable_https_redirect   = $enable_https,
   Stdlib::Port $port               = 80,
-  Boolean $manage_nginx_repo       = false,
   Boolean $manage_firewall         = false,
 ) {
   include ontoportal::nginx
@@ -33,46 +30,15 @@ class ontoportal::nginx::ui_proxy (
     }
   }
 
-  if $manage_letsencrypt {
-    # enable HTTPS if letsencrypt cert is generated
-    # FIXME This method requires two puppet agent runs; first to request Letsencrypt certs
-    # and second run to update cert paths.  Refactor is needed
-    $enable_ssl = $domain in $facts['letsencrypt_directory']  # check whether letsencrypt cert is in place
-    $_ssl_cert  = $ssl_fullchain #use full chain
-    $_ssl_key   = $ssl_key
-  } else {
-    $enable_ssl = $enable_https
-    # set to a self-signed cert so that nginx doesn't fall over before we get our cert
-    $_ssl_cert  = '/etc/ssl/certs/ssl-cert-snakeoil.pem'
-    $_ssl_key   = '/etc/ssl/private/ssl-cert-snakeoil.key'
-  }
+  $_ssl_cert = ontoportal::tls_path($domain, 'cert', $ssl_cert)
+  $_ssl_key  = ontoportal::tls_path($domain, 'key',  $ssl_key)
 
-  $_enable_https_redirect = $enable_ssl and $enable_https_redirect
-
-  if $canonical_redirect {
-    $_catch_all = undef
-  } elsif $catch_all {
-    $_catch_all = 'default_server'
-  } else {
-    $_catch_all = undef
-  }
-
-  if $canonical_redirect {
-    nginx::resource::server { 'canonical_redirect':
-      listen_port => $port,
-      listen_options => 'default_server',
-      server_name => ['_'],
-      ssl         => $enable_ssl,
-      ssl_cert     => $_ssl_cert,
-      ssl_key      => $_ssl_key,
-      raw_append => "return 301 https://${domain}\$request_uri;",
-    }
-  }
+  $_enable_https_redirect = $enable_https and $enable_https_redirect
 
   # static files / assets file are served by nginx
   nginx::resource::location { '^~ /assets/':
     ensure      => present,
-    ssl         => $enable_ssl,
+    ssl         => $enable_https,
     ssl_only    => $_enable_https_redirect,
     www_root    => "${app_dir}/current/public",
     gzip_static => 'on',
@@ -115,19 +81,19 @@ class ontoportal::nginx::ui_proxy (
     ensure         => present,
     server_name    => [$domain] + $slices_fqdn,
     listen_port    => $port,
-    listen_options => $_catch_all,
+    listen_options => bool2str($catch_all, 'default_server', ''),
     www_root       => "${app_dir}/current/public",
     try_files      => ['$uri/index.html', '$uri', '@puma-bioportal_web_ui'],
     ssl_redirect   => $_enable_https_redirect,
     index_files    => [],
-    ssl            => $enable_ssl,
+    ssl            => $enable_https,
     ssl_cert       => $_ssl_cert,
     ssl_key        => $_ssl_key,
     raw_append     => $raw_append,
   }
 
   nginx::resource::location { '@puma-bioportal_web_ui':
-    ssl                => $enable_ssl,
+    ssl                => $enable_https,
     ssl_only           => $_enable_https_redirect,
     proxy_http_version => '1.1',
     server             => 'ontoportal_web_ui',

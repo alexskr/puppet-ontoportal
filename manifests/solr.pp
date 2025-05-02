@@ -181,7 +181,7 @@ class ontoportal::solr (
                 /bin/chown -R ${deployeruser}:${deployergroup} ${config_dir}/term_search",
     unless  => "/usr/bin/test -f ${config_dir}/term_search/managed-schema",
     timeout => 600,
-    require => [ File[$config_dir], Class['solr'],]
+    require => [File[$config_dir], Class['solr'],],
   }
 
   #v8.2 has global maxboolClauses setting which sets global max. We have to set it here in addition to solrconfig.xml

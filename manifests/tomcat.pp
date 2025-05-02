@@ -31,7 +31,7 @@ class ontoportal::tomcat(
       tomcat::config::server::tomcat_users { 'admin-script':
         catalina_base => $catalina_base,
         element       => 'role',
-        require       => Class['tomcat']
+        require       => Class['tomcat'],
       }
       -> tomcat::config::server::tomcat_users { 'manager-script':
         catalina_base => $catalina_base,
@@ -88,8 +88,8 @@ class ontoportal::tomcat(
     content => $_systemd_unit_file_content,
   }
   ~> service { 'tomcat':
-    enable  => true,
     ensure  => 'running',
+    enable  => true,
     require => Class['tomcat'],
   }
 
