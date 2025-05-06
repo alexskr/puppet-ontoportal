@@ -3,7 +3,7 @@ class ontoportal::user::sysadmin (
   Array[String]    $sshkeys    = [],
   String           $shell      = '/bin/bash',
   String           $comment    = 'OntoPortal SysAdmin user',
-  Optional[String] $password   = undef,
+  String           $password   = '!!',
   Boolean          $managehome = true,
 ) {
   accounts::user { $user:
