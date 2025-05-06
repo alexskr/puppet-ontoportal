@@ -1,19 +1,6 @@
 ---
 # hiera/common.yaml
 
-ontoportal::appliance::user::sysadmin::password: >
-  ENC[PKCS7,MIIBuQYJKoZIhvcNAQcDoIIBqjCCAaYCAQAxggEhMIIBHQIBAD
-  AFMAACAQAwDQYJKoZIhvcNAQEBBQAEggEABZyQ7VanRauOD2ApBwi/rUgjym
-  TS1x5zwQ8/MjiP0bxj/BxesJYLK7mFQTj0xIY2+9dAMBSc9dK2rPsSSNsjZL
-  OiRjvf2jwdM4ERu+FGvkyrAqtQbJUiT8HTDVeBcc1kUEwVNqO27qpEqpSMAO
-  VmP9uSwfxm5GzfqPKR3XmO8QMSsh2a+ylSa7DfWq1vd8UGGkz5EhvDQCP/nj
-  4Tm04QPzk0K9AJvwJexrfYopO6kFQDXGh3ArJ5sJZxSeb4wsip6IoDiDcsg1
-  QS+LPoAw1XSF1rtfys+adCZQTgUsamETgzI+z+mENONII4AXZbJTNAimsXMj
-  JPHINZG8Bt6jnoSzB8BgkqhkiG9w0BBwEwHQYJYIZIAWUDBAEqBBAqxRhxEq
-  /SZNuVo7VbbA1ogFDjG7a+l6BEtSgioKcSOe72a2BOk6T6OSEIOozWlSvexP
-  v7AAYSDxd6XFrERx73rP5+PdlYI47AEbMFg6xaiLQqZSnCX/YpK+yQwhkaCY
-  Sy8w==]
-
 #ontoportal::appliance::app_root_dir: "/opt/ontoportal"
 #ontoportal::appliance::log_dir: "/var/log/ontoportal"
 #ontoportal::appliance::data_dir: "/srv/ontoportal"
