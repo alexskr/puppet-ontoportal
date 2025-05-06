@@ -1,8 +1,8 @@
 class ontoportal::user::backend (
   String $user  = 'op-backend',
   String $group = 'opdata',
-  Optional[Integer] $uid  = undef,
-  Optional[Integer] $gid  = undef,
+  Optional[Integer] $uid = undef,
+  Optional[Integer] $gid = undef,
   String $home  = '/nonexistent',
 ) {
   # create shared data group
