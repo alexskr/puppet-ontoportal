@@ -3,12 +3,13 @@ class ontoportal::nginx::proxy_api (
   Boolean $catch_all               = true, #must be disabled for canonical redirect or block all non-canonical domains
   Integer $logrotate_nginx         = 180,
   Optional[Array[String]] $slices  = [], #used as SAN for letsencrypt
-  Optional[Stdlib::Absolutepath] $ssl_key,
-  Optional[Stdlib::Absolutepath] $ssl_cert,
+  Optional[Stdlib::Absolutepath] $ssl_key  = undef,
+  Optional[Stdlib::Absolutepath] $ssl_cert = undef,
   Boolean $manage_letsencrypt      = false,
   Boolean $enable_https            = true,
   Boolean $enable_https_redirect   = $enable_https,
   Stdlib::Port $port               = 80,
+  Stdlib::Port $port_https         = 8443,
   Boolean $manage_firewall         = false,
 ) {
   include ontoportal::nginx

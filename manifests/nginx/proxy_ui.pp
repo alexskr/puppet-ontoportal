@@ -4,8 +4,8 @@ class ontoportal::nginx::proxy_ui (
   Integer $logrotate_nginx         = 180,
   Stdlib::Absolutepath $app_dir,
   Optional[Array[String]] $slices  = [], #used as SAN for letsencrypt
-  Optional[Stdlib::Absolutepath] $ssl_key,
-  Optional[Stdlib::Absolutepath] $ssl_cert,
+  Optional[Stdlib::Absolutepath] $ssl_key  = undef,
+  Optional[Stdlib::Absolutepath] $ssl_cert = undef,
   Boolean $manage_letsencrypt      = false,
   Boolean $enable_https            = true,
   Boolean $enable_https_redirect   = $enable_https,

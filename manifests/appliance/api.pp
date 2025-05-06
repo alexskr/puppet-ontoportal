@@ -25,10 +25,7 @@ class ontoportal::appliance::api (
 
   # just in case both API and UI are running on the same node
   # this needs to refactored
-  $catch_all = ($api_port == 80 and $api_port_https == 443 ) ? {
-    true =>  undef,
-    false =>  'default_server',
-  }
+  $catch_all = !($api_port == 80 and $api_port_https == 443)
 
   User <| title == $admin_user |> { groups +> 'tomcat' } # FIXME might not need to do this?
 
@@ -43,7 +40,7 @@ class ontoportal::appliance::api (
     log_dir         => "${log_root_dir}/ncbo_cron",
   }
 
-  class { 'ontoportal::profile::api':
+  class { 'ontoportal::profile::ontologies_api':
     environment     => 'appliance',
     admin_user      => $admin_user,
     service_account => $backend_user,
@@ -56,14 +53,12 @@ class ontoportal::appliance::api (
   }
 
   class { 'ontoportal::nginx::proxy_api':
-    environment        => 'appliance',
     port               => $api_port,
     port_https         => $api_port_https,
     domain             => $api_domain_name,
     manage_letsencrypt => $manage_letsencrypt,
     manage_firewall    => false,
     catch_all          => $catch_all,
-    log_dir            => "${log_root_dir}/ontologies_api",
   }
 
   class { 'ontoportal::redis::goo_cache':

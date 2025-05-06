@@ -31,7 +31,7 @@ class ontoportal::appliance::ui (
     environment     => 'appliance',
     ruby_version    => $ruby_version,
     service_account => $ui_user,
-    owner           => $owner,
+    admin_user      => $admin_user,
     group           => $group,
     logrotate_ui    => $logrotate_ui,
     app_dir         => "${app_root_dir}/bioportal_web_ui",
@@ -39,7 +39,7 @@ class ontoportal::appliance::ui (
     puma_workers    => $puma_workers,
   }
 
-  class { 'ontoportal::nginx::ui_proxy':
+  class { 'ontoportal::nginx::proxy_ui':
     enable_https       => $enable_https,
     manage_letsencrypt => $manage_letsencrypt,
     logrotate_nginx    => $logrotate_nginx,
