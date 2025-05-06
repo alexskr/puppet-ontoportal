@@ -54,7 +54,6 @@ class ontoportal::appliance (
 
   Boolean $manage_admin_user    = true,
   Boolean $manage_sysadmin_user = false,
-  Boolean $manage_shared_group  = true,
 
   Array[String] $admin_sshkeys    = [],
   Array[String] $sysadmin_sshkeys = [],
@@ -103,10 +102,7 @@ class ontoportal::appliance (
     backend_user         => $backend_user,
     sysadmin_user        => $sysadmin_user,
     shared_group         => $shared_group,
-
     manage_sysadmin_user => $_manage_sysadmin_user,
-    manage_shared_group  => $manage_shared_group,
-
     admin_sshkeys        => $admin_sshkeys,
     sysadmin_sshkeys     => $sysadmin_sshkeys,
   }
