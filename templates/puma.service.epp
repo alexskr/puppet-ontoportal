@@ -16,6 +16,9 @@
 [Unit]
 Description=Puma HTTP Server for <%= $name %>
 After=network.target
+# prevent infinite restarts if app is misconfigured
+StartLimitIntervalSec=10
+StartLimitBurst=5
 
 # Uncomment for socket activation (see below)
 #Requires=puma.socket
@@ -59,9 +62,6 @@ ReadWritePaths=<%= $read_write_paths.join(' ') %>
 ReadOnlyPaths=<%= $read_only_paths.join(' ') %>
 <% } -%>
 RuntimeDirectory=<%= $name %>
-
-# # The path to your application code root directory.
-# # Also replace the "<YOUR_APP_PATH>" placeholders below with this path.
 WorkingDirectory=<%= $app_dir %>/current
 
 # # Helpful for debugging socket activation, etc.
@@ -75,11 +75,9 @@ Environment="RAILS_MAX_THREAD=<%= $puma_threads %>"
 <% } -%>
 
 ExecStart=<%= $bundle_bin %> exec puma -C <%= $app_dir %>/current/config/puma.rb
-#ExecReload=<%= $bundle_bin %> exec pumactl -S <%= $app_dir %>/shared/tmp/pids/puma.state
-# do hot restart
-ExecReload="/bin/kill -USR2 $MAINPID"
 
-RestartSec=1
+
+RestartSec=5
 Restart=on-failure
 
 SyslogIdentifier=<%= $name %>
