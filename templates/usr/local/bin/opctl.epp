@@ -279,6 +279,7 @@ reset_permissions() {
   set_perms "$LOG_DIR" "$ADMIN_USER" "$SHARED_GROUP" 755
   set_perms "$APP_ROOT_DIR/config" "$ADMIN_USER" "$SHARED_GROUP" 755 true 644
   set_perms "$APP_ROOT_DIR/virtual_appliance" "$ADMIN_USER" "$ADMIN_USER" 755 true 644 true
+  set_perms "$APP_ROOT_DIR/virtual_appliance/appliance_config/bioportal_web_ui/config/credentials" "$ADMIN_USER" "$UI_USER" 750 true 640 true
   set_perms "$APP_ROOT_DIR/.bundle" "$ADMIN_USER" "$ADMIN_USER" 755 true 644 true
 
   if $INCLUDE_API; then
