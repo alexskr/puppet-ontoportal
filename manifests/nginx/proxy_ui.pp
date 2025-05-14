@@ -49,6 +49,19 @@ class ontoportal::nginx::proxy_ui (
     }, #response can be cached within proxies rails defaults to private
   }
 
+  # prevent browser from caching maintenance page
+  nginx::resource::location { '/system/maintenance.html':
+    ensure     => present,
+    ssl        => $enable_https,
+    ssl_only   => $_enable_https_redirect,
+    www_root   => "${app_dir}/current/public",
+    expires    => '0',
+    server     => 'ontoportal_web_ui',
+    add_header => {
+      'Cache-Control' => 'no-store, no-cache, must-revalidate, proxy-revalidate',
+    },
+  }
+
   # Define the upstream Puma socket
   nginx::resource::upstream { 'puma-bioportal_web_ui':
     members => {
@@ -60,20 +73,12 @@ class ontoportal::nginx::proxy_ui (
   }
 
   $raw_append = @(NGINX_RAW_APPEND)
-    location @503 {
-      error_page 405 = /system/maintenance.html;
-      if (-f $document_root/system/maintenance.html) {
-        rewrite ^(.*)$ /system/maintenance.html break;
-      }
-      rewrite ^(.*)$ /503.html break;
-    }
-
     if ($request_method !~ ^(GET|HEAD|PUT|PATCH|POST|DELETE|OPTIONS)$ ){
       return 405;
     }
 
-    if (-f $document_root/system/maintenance.html) {
-      return 503;
+    if (-f /opt/ontoportal/bioportal_web_ui/current/public/system/maintenance.html) {
+      rewrite ^(.*)$ /system/maintenance.html break;
     }
   | NGINX_RAW_APPEND
 
