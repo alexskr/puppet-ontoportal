@@ -11,6 +11,8 @@ class ontoportal::nginx::proxy_api (
   Stdlib::Port $port               = 80,
   Stdlib::Port $port_https         = 8443,
   Boolean $manage_firewall         = false,
+  Enum['webroot', 'nginx'] $letsencrypt_plugin = 'nginx',
+  Optional[Array[Stdlib::Absolutepath]] $letsencrypt_webroot_paths = ['/var/lib/letsencrypt/webroot'],
 ) {
   include ontoportal::nginx
 
@@ -24,11 +26,27 @@ class ontoportal::nginx::proxy_api (
 
   $slices_fqdn = $slices.map |$item| { "${item}.${domain}" }
 
+  # Configure ACME challenge location if using webroot plugin
+  if $letsencrypt_plugin == 'webroot' {
+    nginx::resource::location { 'letsencrypt-acme-challenge-api':
+      ensure              => present,
+      server              => 'ontologies_api',
+      ssl                 => false,  # HTTP only
+      location            => '^~ /.well-known/acme-challenge/',
+      www_root            => $letsencrypt_webroot_paths[0],
+      index_files         => [],
+      location_cfg_append => {
+        'default_type' => 'text/plain',
+      },
+    }
+  }
+
   if $enable_https and $manage_letsencrypt {
-    ontoportal::letsencrypt { $domain:
-      cron_success_command => '/bin/systemctl reload nginx.service',
-      domain               => $domain,
-      san                  => $slices_fqdn,
+    ontoportal::nginx::letsencrypt { $domain:
+      domain        => $domain,
+      san           => $slices_fqdn,
+      plugin        => $letsencrypt_plugin,
+      webroot_paths => $letsencrypt_webroot_paths,
     }
   }
 
@@ -49,7 +67,7 @@ class ontoportal::nginx::proxy_api (
     listen_port      => $port,
     ssl_port         => $port_https,
     listen_options   => bool2str($catch_all, 'default_server', ''),
-    proxy            => 'http://ontologies_api' ,
+    proxy            => 'http://ontologies_api',
     index_files      => [],
     ssl              => $enable_https,
     ssl_redirect     => $_enable_https_redirect,

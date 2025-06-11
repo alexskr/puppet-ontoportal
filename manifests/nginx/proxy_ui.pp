@@ -11,6 +11,8 @@ class ontoportal::nginx::proxy_ui (
   Boolean $enable_https_redirect   = $enable_https,
   Stdlib::Port $port               = 80,
   Boolean $manage_firewall         = false,
+  Enum['webroot', 'nginx'] $letsencrypt_plugin = 'nginx',
+  Optional[Array[Stdlib::Absolutepath]] $letsencrypt_webroot_paths = ['/var/lib/letsencrypt/webroot'],
 ) {
   include ontoportal::nginx
 
@@ -22,11 +24,27 @@ class ontoportal::nginx::proxy_ui (
 
   $canonical_redirect_hosts = [$domain] + $slices_fqdn
 
+  # Configure ACME challenge location if using webroot plugin
+  if $letsencrypt_plugin == 'webroot' {
+    nginx::resource::location { 'letsencrypt-acme-challenge-ui':
+      ensure              => present,
+      server              => 'ontoportal_web_ui',
+      ssl                 => false,  # HTTP only
+      location            => '^~ /.well-known/acme-challenge/',
+      www_root            => $letsencrypt_webroot_paths[0],
+      index_files         => [],
+      location_cfg_append => {
+        'default_type' => 'text/plain',
+      },
+    }
+  }
+
   if $enable_https and $manage_letsencrypt {
-    ontoportal::letsencrypt { $domain:
-      cron_success_command => '/bin/systemctl reload nginx.service',
-      domain               => $domain,
-      san                  => $slices_fqdn,
+    ontoportal::nginx::letsencrypt { $domain:
+      domain        => $domain,
+      san           => $slices_fqdn,
+      plugin        => $letsencrypt_plugin,
+      webroot_paths => $letsencrypt_webroot_paths,
     }
   }
 
@@ -66,21 +84,21 @@ class ontoportal::nginx::proxy_ui (
   nginx::resource::upstream { 'puma-bioportal_web_ui':
     members => {
       'ui' => {
-        server       => "unix:/run/puma-ui/puma.sock",
+        server       => 'unix:/run/puma-ui/puma.sock',
         fail_timeout => '0s',
       },
     },
   }
 
   $raw_append = @(NGINX_RAW_APPEND)
-    if ($request_method !~ ^(GET|HEAD|PUT|PATCH|POST|DELETE|OPTIONS)$ ){
-      return 405;
-    }
+      if ($request_method !~ ^(GET|HEAD|PUT|PATCH|POST|DELETE|OPTIONS)$ ){
+        return 405;
+      }
 
-    if (-f /opt/ontoportal/bioportal_web_ui/current/public/system/maintenance.html) {
-      rewrite ^(.*)$ /system/maintenance.html break;
-    }
-  | NGINX_RAW_APPEND
+      if (-f /opt/ontoportal/bioportal_web_ui/current/public/system/maintenance.html) {
+        rewrite ^(.*)$ /system/maintenance.html break;
+      }
+    | NGINX_RAW_APPEND
 
   nginx::resource::server { 'ontoportal_web_ui':
     ensure         => present,
@@ -110,5 +128,4 @@ class ontoportal::nginx::proxy_ui (
       'X-Real-IP $remote_addr',
     ],
   }
-
 }
