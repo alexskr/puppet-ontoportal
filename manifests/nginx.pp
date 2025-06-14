@@ -1,12 +1,20 @@
 #
 # Class: ontoportal::nginx
 #
-# Description: Wrapper class for managing common NGINX config, including:
-# - Global SSL + gzip tuning
-# - Optional firewall rules
-# - Optional logrotate
-# - Optional NGINX status page
-# - Optional canonical domain redirection or non-canonical blocking
+# Manages common NGINX configuration for OntoPortal.
+#
+# Parameters:
+#
+# [*port*]                      - The HTTP port to listen on (default: 80)
+# [*port_https*]                - The HTTPS port to listen on (default: 443)
+# [*enable_status*]             - Whether to enable the NGINX status page (default: false)
+# [*manage_repo*]               - Whether to manage the NGINX package repository (default: true)
+# [*manage_firewall*]           - Whether to manage firewall rules for NGINX (default: false)
+# [*manage_logrotate*]          - Whether to manage logrotate for NGINX logs (default: true)
+# [*logrotate_days*]            - Number of days to keep rotated logs (default: 180)
+# [*block_noncanonical_domains*] - Whether to block non-canonical domains (default: false)
+# [*status_allow_hosts*]        - Hosts allowed to access the status page (default: ['127.0.0.1'])
+# [*canonical_redirect_domain*] - Domain to redirect to if canonical redirection is enabled (default: undef)
 #
 class ontoportal::nginx (
   Stdlib::Port $port                      = 80,
@@ -22,8 +30,8 @@ class ontoportal::nginx (
 ) {
 
   if $manage_firewall {
-    firewall_multi { "34 allow inbound on ports ${port} and ${ssl_port}":
-      dport => [$port, $ssl_port],
+    firewall_multi { "34 allow inbound on ports ${port} and ${port_https}":
+      dport => [$port, $port_https],
       proto => tcp,
       jump  => accept,
     }
@@ -36,8 +44,20 @@ class ontoportal::nginx (
     passenger_package_ensure => 'absent',
     client_max_body_size     => '512M',
     http_tcp_nopush          => 'on',
+    gzip                     => 'on',
+    gzip_min_length          => 512,
     gzip_proxied             => 'any',
-    gzip_types               => 'text/plain text/css application/x-javascript text/xml application/xml application/xml+rss application/json text/javascript',
+    gzip_vary                => 'on',
+    gzip_types               => [
+      'text/html',
+      'text/plain',
+      'text/css',
+      'text/javascript',
+      'application/javascript',
+      'application/json',
+      'application/xml',
+      'application/x-javascript',
+    ],
     server_purge             => true,
     confd_purge              => true,
     require                  => Package['ssl-cert'],
@@ -105,4 +125,3 @@ class ontoportal::nginx (
     }
   }
 }
-
