@@ -14,7 +14,7 @@ class ontoportal::nginx::proxy_ui (
   Enum['webroot', 'nginx'] $letsencrypt_plugin = 'nginx',
   Optional[Array[Stdlib::Absolutepath]] $letsencrypt_webroot_paths = ['/var/lib/letsencrypt/webroot'],
 ) {
-  include ontoportal::nginx
+  contain ontoportal::nginx
 
   if $manage_firewall {
     include ontoportal::firewall::http

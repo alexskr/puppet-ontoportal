@@ -8,13 +8,13 @@ class ontoportal::nginx::proxy_api (
   Boolean $manage_letsencrypt      = false,
   Boolean $enable_https            = true,
   Boolean $enable_https_redirect   = $enable_https,
-  Stdlib::Port $port               = 80,
+  Stdlib::Port $port               = 8080,
   Stdlib::Port $port_https         = 8443,
   Boolean $manage_firewall         = false,
   Enum['webroot', 'nginx'] $letsencrypt_plugin = 'nginx',
   Optional[Array[Stdlib::Absolutepath]] $letsencrypt_webroot_paths = ['/var/lib/letsencrypt/webroot'],
 ) {
-  include ontoportal::nginx
+  contain ontoportal::nginx
 
   if $manage_firewall {
     firewall_multi { "34 allow inbound API on port ${port} and ${port_https}":
@@ -38,6 +38,7 @@ class ontoportal::nginx::proxy_api (
       location_cfg_append => {
         'default_type' => 'text/plain',
       },
+      before             => Ontoportal::Nginx::Letsencrypt[$domain],
     }
   }
 
