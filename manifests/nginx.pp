@@ -49,7 +49,6 @@ class ontoportal::nginx (
     gzip_proxied             => 'any',
     gzip_vary                => 'on',
     gzip_types               => [
-      'text/html',
       'text/plain',
       'text/css',
       'text/javascript',
