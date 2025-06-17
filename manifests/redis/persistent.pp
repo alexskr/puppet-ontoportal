@@ -1,6 +1,6 @@
 #this profile class is written for arioch/puppet-redis which is a bit quircky
 
-class ontoportal::redis_persistent(
+class ontoportal::redis::persistent(
   Optional[String] $maxmemory = undef,
   Stdlib::Port $port          = 6379,
   Boolean $manage_firewall    = true,
@@ -8,11 +8,13 @@ class ontoportal::redis_persistent(
   Boolean $manage_repo        = false,
   Boolean $protected_mode     = false,
   Boolean $manage_newrelic    = true,
-  Stdlib::Absolutepath $workdir = '/srv/ontoportal/data/redis_persistent',
-  $fwsrc = undef,
+  Stdlib::Absolutepath $workdir  = '/srv/ontoportal/data/redis_persistent',
+  $fwsrc = lookup("ontologies_api_nodes_${facts['ncbo_environment']}", undef, undef, [])
+    + lookup('ips.vpn', undef, undef, [])
+    + lookup("mgrep_${facts['ncbo_environment']}", undef, undef, [])
 ) {
+  include ontoportal::redis
   $redis_role = 'persistent'
-  include ontoportal::redis_base
 
   if $manage_firewall {
     firewall_multi { "33 allow redis on port ${port}":
@@ -39,16 +41,19 @@ class ontoportal::redis_persistent(
   }
 
   if $manage_newrelic {
-    class { 'ontoportal::newrelic::redis':
+    class { 'profile::ncbo::newrelic::redis':
       redis_role => "redis_${redis_role}",
       port       => $port,
     }
   }
-  selinux::fcontext{'set-redis-data-context':
-    seltype =>  'redis_var_lib_t',
-    pathspec =>  "${workdir}(/.*)?",
-  }
-  selinux::exec_restorecon{"${workdir}":
-    unless =>  "/bin/ls -adZ ${workdir}/* | /bin/grep -v redis_var_lib_t",
+
+  if $facts['os']['family'] == 'RedHat' {
+    selinux::fcontext {'set-redis-data-context':
+      seltype => 'redis_var_lib_t',
+      pathspec => "${workdir}(/.*)?",
+    }
+    selinux::exec_restorecon {"${workdir}":
+      unless => "/bin/ls -adZ ${workdir}/* | /bin/grep -v redis_var_lib_t",
+    }
   }
 }

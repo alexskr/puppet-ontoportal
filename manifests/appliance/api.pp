@@ -1,110 +1,126 @@
-########################################################################
-
-# this is more of a role than a profile.
 class ontoportal::appliance::api (
-  $api_port = $ontoportal::appliance::api_port,
-  $api_ssl_port = $ontoportal::appliance::api_ssl_port,
-  $owner = $ontoportal::appliance::owner,
-  $group = $ontoportal::appliance::group,
-  $appliance_version = $ontoportal::appliance::appliance_version,
-  $ruby_version = $ontoportal::appliance::ruby_version,
-  $data_dir = $ontoportal::appliance::data_dir,
-  $app_root_dir  = $ontoportal::appliance::app_root_dir,
-  $ui_domain_name = $ontoportal::appliance::ui_domain_name,
-  $api_domain_name = $ontoportal::appliance::api_domain_name,
+  Stdlib::Absolutepath $app_root_dir,
+  Stdlib::Absolutepath $data_dir,
+  Stdlib::Absolutepath $log_root_dir,
+  String               $api_domain_name,
+  String               $owner,
+  String               $group, #FIXME do we need this?
+  String               $admin_user,
+  String               $backend_user,
+  String               $shared_group,
+  String               $ruby_version,
+  String               $appliance_version,
+  String               $goo_cache_maxmemory = '512M',
+  String               $http_cache_maxmemory = '512M',
+  Boolean              $manage_firewall,
+  Boolean              $manage_letsencrypt,
+  Boolean              $enable_https,
+  Integer              $api_port,
+  Integer              $api_port_https,
+  Enum['4store', 'agraph', 'external'] $triple_store,
 ) {
-  include ontoportal::firewall::api
-
-  User <| title == ontoportal |> { groups +> 'tomcat' }
-  # Create Directories (including parent directories)
-  file { [$data_dir,
-      "${data_dir}/reports", "${data_dir}/mgrep",
-      "${data_dir}/mgrep/dictionary/",
-    ]:
-      ensure => directory,
-      owner  => $owner,
-      group  => $group,
-      mode   => '0775',
+  if $manage_firewall {
+    include ontoportal::firewall::api
   }
+
+  # just in case both API and UI are running on the same node
+  # this needs to refactored
+  $catch_all = !($api_port == 80 and $api_port_https == 443)
+
+  User <| title == $admin_user |> { groups +> 'tomcat' } # FIXME might not need to do this?
 
   class { 'ontoportal::ncbo_cron':
-    environment  => 'appliance',
-    owner        => $owner,
-    group        => $group,
-    install_ruby => false,
-    app_root     => "${app_root_dir}/ncbo_cron",
-    repo_path    => "${data_dir}/repository",
-    require      => Class['epel'],
+    service_account => $backend_user,
+    admin_user      => $admin_user,
+    group           => $shared_group,
+    manage_ruby     => false,
+    manage_java     => false,
+    app_dir         => "${app_root_dir}/ncbo_cron",
+    repo_dir        => "${data_dir}/repository",
+    log_dir         => "${log_root_dir}/ncbo_cron",
   }
 
-  #chaining classes so that java alternatives is set properly after 1 run.
-  # chaining api and UI,  sometimes passenger yum repo confuses nginx installation.
-  Class['epel'] -> Class['ontoportal::ontologies_api']
-
-  class { 'ontoportal::ontologies_api':
-    environment         => 'appliance',
-    port                => $api_port,
-    ssl_port            => $api_ssl_port,
-    domain              => $api_domain_name,
-    owner               => 'ontoportal',
-    group               => 'ontoportal',
-    enable_ssl          => true, #not nessesary for appliance
-    enable_letsencrypt  => false, #not nessesary for appliance
-    enable_nginx_status => false, #not requried for appliance
-    manage_nginx_repo   => false,
-    manage_firewall     => false,
-    install_ruby        => false,
-    install_java        => false,
-    ssl_cert            => '/etc/pki/tls/certs/localhost.crt',
-    ssl_chain           => '/etc/pki/tls/certs/localhost.crt',
-    ssl_key             => '/etc/pki/tls/private/localhost.key',
-    app_root            => "${app_root_dir}/ontologies_api",
-    require             => Class['epel'],
+  class { 'ontoportal::profile::ontologies_api':
+    environment     => 'appliance',
+    admin_user      => $admin_user,
+    service_account => $backend_user,
+    ruby_version    => $ruby_version,
+    data_group      => $shared_group,
+    manage_ruby     => true,
+    manage_java     => false,
+    app_root_dir    => $app_root_dir,
+    log_dir         => "${log_root_dir}/ontologies_api",
   }
 
-  class { 'ontoportal::redis_goo_cache':
-    maxmemory       => '512M',
+  class { 'ontoportal::nginx::proxy_api':
+    port               => $api_port,
+    port_https         => $api_port_https,
+    domain             => $api_domain_name,
+    manage_letsencrypt => $manage_letsencrypt,
+    manage_firewall    => false,
+    catch_all          => $catch_all,
+  }
+
+  class { 'ontoportal::redis::goo_cache':
+    maxmemory       => $goo_cache_maxmemory,
     manage_firewall => false,
     manage_newrelic => false,
   }
-  class { 'ontoportal::redis_persistent':
+
+  class { 'ontoportal::redis::persistent':
     manage_firewall => false,
     workdir         => "${data_dir}/redis_persistent",
     manage_newrelic => false,
-    require         => File[$data_dir],
+    # require         => File[$data_dir],
   }
-  class { 'ontoportal::redis_http_cache':
-    maxmemory       => '512M',
+
+  class { 'ontoportal::redis::http_cache':
+    maxmemory       => $http_cache_maxmemory,
     manage_firewall => false,
     manage_newrelic => false,
   }
+
   class { 'ontoportal::solr':
     manage_java     => false,
-    deployeruser    => $owner,
-    deployergroup   => $owner,
+    deployeruser    => $admin_user,
+    deployergroup   => $admin_user,
     manage_firewall => false,
     solr_heap       => '512M',
     var_dir         => "${data_dir}/solr",
   }
 
-  class { 'fourstore':
-    data_dir => "${data_dir}/4store",
-    port     => 8081,
-    fsnodes  => '127.0.0.1',
+  case $triple_store {
+    '4store': {
+      class { 'fourstore':
+        data_dir => "${data_dir}/4store",
+        port     => 8081,
+        fsnodes  => '127.0.0.1',
+      }
+      fourstore::kb { 'ontologies_api': segments => 4 }
+    }
+    'agraph': {
+      include ontoportal::agraph
+    }
+    'external': {
+      notice("Skipping triple store setup; it's managed externally.")
+    }
+    default: {
+      fail("Unexpected triple store option: ${triple_store}")
+    }
   }
-  fourstore::kb { 'ontologies_api': segments => 4 }
 
   class { 'mgrep':
     mgrep_enable => true,
-    group        => $group,
+    group        => $shared_group,
     dict_path    => "${data_dir}/mgrep/dictionary/dictionary.txt",
   }
+
   include mgrep::dictrefresh
 
   # annotator plus proxy reverse proxy
   nginx::resource::location { '/annotatorplus/':
     ensure => present,
-    # ssl   => false,
+    ssl    => true,
     server => 'ontologies_api',
     proxy  => 'http://localhost:8082/annotatorplus/',
   }
@@ -114,7 +130,7 @@ class ontoportal::appliance::api (
     replace => 'no',
     content => 'placeholder',
     mode    => '0644',
-    owner   => $owner,
+    owner   => $admin_user,
     require => Class[ontoportal::tomcat],
   }
 }

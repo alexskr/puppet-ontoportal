@@ -1,0 +1,85 @@
+ <%- |
+ String $name,
+ String $user,
+ String $group,
+ String $rails_env,
+ Optional[String] $environment,
+ Optional[Integer] $puma_threads,
+ Optional[Integer] $puma_workers,
+ Stdlib::Absolutepath $app_dir,
+ Stdlib::Absolutepath $bundle_bin,
+ Array[Stdlib::Absolutepath] $read_write_paths,
+ Array[Stdlib::Absolutepath] $read_only_paths,
+| -%>
+
+
+[Unit]
+Description=Puma HTTP Server for <%= $name %>
+After=network.target
+# prevent infinite restarts if app is misconfigured
+StartLimitIntervalSec=10
+StartLimitBurst=5
+
+# Uncomment for socket activation (see below)
+#Requires=puma.socket
+#
+[Service]
+# # Puma supports systemd's `Type=notify` and watchdog service
+# # monitoring, as of Puma 5.1 or later.
+# # On earlier versions of Puma or JRuby, change this to `Type=simple` and remove
+# # the `WatchdogSec` line.
+#Type=notify
+Type=simple
+
+# # If your Puma process locks up, systemd's watchdog will restart it within seconds.
+WatchdogSec=60
+
+# # Preferably configure a non-privileged user
+User=<%= $user %>
+Group=<%= $group %>
+TimeoutStopSec=90
+PrivateTmp=yes
+ExecStop=/usr/bin/kill -QUIT $MAINPID
+ExecReload=/usr/bin/kill -USR2 $MAINPID
+User=<%= $user %>
+Group=<%= $group %>
+PrivateTmp=yes
+ProtectSystem=full
+ProtectHome=yes
+PrivateTmp=yes
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+RestrictRealtime=yes
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+<% if $read_write_paths { -%>
+ReadWritePaths=<%= $read_write_paths.join(' ') %>
+<% } -%>
+<% if $read_only_paths { -%>
+ReadOnlyPaths=<%= $read_only_paths.join(' ') %>
+<% } -%>
+RuntimeDirectory=<%= $name %>
+WorkingDirectory=<%= $app_dir %>/current
+
+# # Helpful for debugging socket activation, etc.
+# # Environment=PUMA_DEBUG=1
+Environment="RAILS_ENV=<%= $rails_env %>"
+<% if $puma_workers { -%>
+Environment="WEB_CONCURRENCY=<%= $puma_workers %>"
+<% } -%>
+<% if $puma_threads { -%>
+Environment="RAILS_MAX_THREAD=<%= $puma_threads %>"
+<% } -%>
+
+ExecStart=<%= $bundle_bin %> exec puma -C <%= $app_dir %>/current/config/puma.rb
+
+
+RestartSec=5
+Restart=on-failure
+
+SyslogIdentifier=<%= $name %>
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,33 @@
+ <%- |
+Stdlib::Absolutepath $data_dir,
+Optional[String] $license,
+| -%>
+
+# AllegroGraph configuration file
+RunAs agraph
+Port 10035
+SettingsDirectory <%= $data_dir %>/settings
+LogDir /var/log/agraph
+PidFile /run/agraph/agraph.pid
+InstanceTimeout 604800
+
+UseLicensedCores true
+
+ReplicationPorts 13000-13020
+
+SlowQueryLogThreshold 10000
+SlowQueryLogFile /var/log/agraph/slow.log
+
+<RootCatalog>
+ExpectedStoreSize 350000000
+Main <%= $data_dir %>/rootcatalog
+TransactionLogDir <%= $data_dir %>/rootcatalog-tlog
+StringTableDir <%= $data_dir %>/rootcatalog-str
+</RootCatalog>
+
+<SystemCatalog>
+Main <%= $data_dir %>/systemcatalog
+InstanceTimeout 10
+</SystemCatalog>
+
+<%= $license %>

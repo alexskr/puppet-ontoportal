@@ -1,58 +1,67 @@
 ########################################################################
+#@memcached_max_memory = max memory for memcached
+#  can be integer representing max memory im MB, i.e 512, or persentage '10%' of available memory
 
 # this is more of a role than a profile.
 class ontoportal::appliance::ui (
-  $owner = $ontoportal::appliance::owner,
-  $group = $ontoportal::appliance::group,
-  $appliance_version = $ontoportal::appliance::appliance_version,
-  $ruby_version = $ontoportal::appliance::ruby_version,
-  $data_dir = $ontoportal::appliance::data_dir,
-  $app_root_dir  = $ontoportal::appliance::app_root_dir,
-  $ui_domain_name = $ontoportal::appliance::ui_domain_name,
-  $api_domain_name = $ontoportal::appliance::api_domain_name,
+  String $ui_domain_name,
+  Stdlib::Absolutepath $app_root_dir,
+  Stdlib::Absolutepath $log_dir,
+
+  String $admin_user,
+  String $ui_user,
+  String $ruby_version,
+
+  String $group,
+  Boolean $manage_firewall,
+  Boolean $manage_letsencrypt,
+  Boolean $enable_https,
+  Optional[Integer] $puma_workers   = undef,
+  String $memcached_max_memory = '512',
+
+  Integer $logrotate_ui = 7,
+  Integer $logrotate_nginx = 14,
 ) {
-  include ontoportal::firewall::http
+  if $manage_firewall {
+    include ontoportal::firewall::http
+  }
+  $owner = $admin_user
 
-  # letsencrypt
-
-  ensure_packages (['certbot', 'python2-certbot-apache'])
-
-  # Create Directories (including parent directories)
-  # file { [$app_root_dir,
-  #   ]:
-  #     ensure => directory,
-  #     owner  => $owner,
-  #     group  => $group,
-  #     mode   => '0775',
-  #}
-  # chaining api and UI,  sometimes passenger yum repo confuses nginx installation.
-  Class['epel'] -> Class['ontoportal::bioportal_web_ui']
-
-  class { 'ontoportal::bioportal_web_ui':
-    environment       => 'appliance',
-    ruby_version      => $ruby_version,
-    owner             => $owner,
-    group             => $group,
-    enable_mod_status => false,
-    logrotate_httpd   => 7,
-    logrotate_rails   => 7,
-    railsdir          => "${app_root_dir}/bioportal_web_ui",
-    domain            => $ui_domain_name,
-    slices            => [],
-    enable_ssl        => true,
-    # self-generated certificats
-    ssl_cert          => '/etc/pki/tls/certs/localhost.crt',
-    ssl_key           => '/etc/pki/tls/private/localhost.key',
-    ssl_chain         => '/etc/pki/ca-trust/extracted/openssl/ca-bundle.trust.crt',
-    install_ruby      => false,
-    require           => Class['ontoportal::rbenv'],
+  class { 'ontoportal::profile::rails_ui':
+    environment     => 'appliance',
+    ruby_version    => $ruby_version,
+    service_account => $ui_user,
+    admin_user      => $admin_user,
+    group           => $group,
+    logrotate_ui    => $logrotate_ui,
+    app_dir         => "${app_root_dir}/bioportal_web_ui",
+    manage_ruby     => true,
+    puma_workers    => $puma_workers,
   }
 
-  # mod_proxy is needed for reverse proxy of biomixer and annotator plus proxy
-  include apache::mod::proxy
-  include apache::mod::proxy_http
+  class { 'ontoportal::nginx::proxy_ui':
+    enable_https       => $enable_https,
+    manage_letsencrypt => $manage_letsencrypt,
+    logrotate_nginx    => $logrotate_nginx,
+    app_dir            => "${app_root_dir}/bioportal_web_ui",
+    domain             => $ui_domain_name,
+    slices             => [],
+  }
 
-  ##mysql setup
+  # proxy for BioMixer
+  nginx::resource::location { 'biomixer':
+    ensure           => present,
+    server           => 'ontoportal_web_ui',
+    ssl              => $enable_https,
+    location         => '/biomixer',
+    proxy            => 'http://127.0.0.1:8082',
+    proxy_set_header => [
+      'Host $host',
+      'X-Real-IP $remote_addr',
+      'X-Forwarded-For $proxy_add_x_forwarded_for',
+    ],
+  }
+
   class { 'mysql::server':
     remove_default_accounts => true,
     override_options        => {
@@ -61,7 +70,7 @@ class ontoportal::appliance::ui (
         'innodb_flush_log_at_trx_commit' => '0',
         'innodb_file_per_table'          => '',
         'innodb_flush_method'            => 'O_DIRECT',
-        'character-set-server'           => 'utf8',
+        'character-set-server'           => 'utf8mb4',
       },
     },
   }
@@ -72,15 +81,19 @@ class ontoportal::appliance::ui (
     password => '*EBE8A8D53522BAC12B99F606FC3C3757742DE6FB',
     host     => 'localhost',
     grant    => ['ALL'],
+    charset  => 'utf8mb4',
+    collate  => 'utf8mb4_unicode_ci',
   }
 
   class { 'memcached':
-    max_memory    => '512m',
+    max_memory    => $memcached_max_memory,
     max_item_size => '5M',
   }
+
+  #FIXME
   # add placeholder files with proper permissions for deployment
   file { '/srv/tomcat/webapps/biomixer.war':
-    replace => 'no',
+    replace => false,
     content => 'placeholder',
     mode    => '0644',
     owner   => $owner,

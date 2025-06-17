@@ -11,11 +11,10 @@ class ontoportal::bioportal_web_ui_db (
     enable_utf8             => true,
   }
 
-  #mysql::db { "bioportal_web_ui_${environment}":
   mysql::db { "bioportal_web_ui_${ncbo_environment}":
     user     => 'bioportal_web_ui',
     password => $db_password,
-    host     => '%', # should be restrictedj
+    host     => '%', # should be restricted
     grant    => ['ALL'],
   }
 

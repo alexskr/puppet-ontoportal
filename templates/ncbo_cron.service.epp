@@ -1,7 +1,9 @@
 <%- |
   String $user,
   String $group,
-  Stdlib::Absolutepath $app_root,
+  Array[Stdlib::Absolutepath] $read_write_paths,
+  Array[Stdlib::Absolutepath] $read_only_paths,
+  Stdlib::Absolutepath $app_dir,
 | -%>
 
 [Unit]
@@ -9,20 +11,31 @@ Description=ncbo_cron service
 After=network.target
 
 [Service]
-ExecStart=<%= $app_root %>/bin/ncbo_cron --daemon -u <%= $user %> -G <%= $group %> -P /var/run/ncbo_cron/ncbo_cron.pid
+Umask=0007
+Type=forking
+ExecStart=<%= $app_dir %>/bin/ncbo_cron --daemon -P /run/ncbo_cron/ncbo_cron.pid
 ExecStop=/usr/bin/kill -QUIT $MAINPID
 ExecReload=/usr/bin/kill -USR2 $MAINPID
-StandardOutput=syslog
-StandardError=syslog
-SyslogIdentifier=ncbo_cron
 User=<%= $user %>
 Group=<%= $group %>
-PIDFile=/var/run/ncbo_cron/ncbo_cron.pid
-PermissionsStartOnly=false
-TimeoutStopSec=62
 PrivateTmp=yes
-WorkingDirectory=<%= $app_root %>
+ProtectSystem=strict
+ProtectHome=yes
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+RestrictRealtime=yes
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=no # oLD sets SGID bit on repo dir
+ReadWritePaths=<%= $read_write_paths.join(' ') %>
+ReadOnlyPaths=<%= $read_only_paths.join(' ') %>
+PIDFile=/run/ncbo_cron/ncbo_cron.pid
+TimeoutStopSec=90
+WorkingDirectory=<%= $app_dir %>
 Environment="PATH=/usr/local/rbenv/shims:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+SyslogIdentifier=ncbo_cron
 
 [Install]
 WantedBy=multi-user.target

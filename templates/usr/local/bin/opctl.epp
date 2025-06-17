@@ -1,0 +1,354 @@
+<% |
+  String $triple_store,
+  Boolean $include_api,
+  Boolean $include_ui,
+  String $app_root_dir,
+  String $log_dir,
+  String $data_dir,
+  String $admin_user,
+  String $backend_user,
+  String $ui_user,
+  String $shared_group
+| -%>
+#!/usr/bin/env bash
+# -----------------------------------------------------------------------------
+# Part of the OntoPortal Virtual Appliance Project
+# https://ontoportal.org
+#
+# Author: Alex Skrenchuk (@alexskr)
+# Copyright (c) 2025 Stanford University and the OntoPortal Alliance
+# SPDX-License-Identifier: Apache-2.0
+#
+# Description
+# Unified service control script for OntoPortal Appliance stack
+# -----------------------------------------------------------------------------
+
+RED=$(tput setaf 1)
+GRN=$(tput setaf 2)
+YEL=$(tput setaf 3)
+NC=$(tput sgr0)
+
+require_root() {
+  if (( EUID != 0 )); then
+    echo "Please run with \"sudo $0\""
+    exit 1
+  fi
+}
+
+# Define service arrays from template variables
+<%
+  $redis_services = [
+    'redis-server-goo_cache.service',
+    'redis-server-http_cache.service',
+    'redis-server-persistent.service'
+  ]
+  $api_services = [
+    'mgrep.service',
+    'solr.service',
+    'ncbo_cron.service',
+    'unicorn.service'
+  ]
+  $ui_services = [
+    'ui.service',
+    'memcached.service'
+  ]
+  $shared_services = ['tomcat.service']
+  $triple_store_services = [$triple_store]
+  $nginx_services = ['nginx.service']
+
+  $api_part = $include_api ? { true => $api_services, false => [] }
+  $ui_part = $include_ui ? { true => $ui_services, false => [] }
+  $nginx_part = ($include_api or $include_ui) ? { true => $nginx_services, false => [] }
+
+  $middle_services = $shared_services + $api_part + $ui_part
+  $start_services = $triple_store_services + $redis_services + $middle_services + $nginx_part
+  $stop_services = $nginx_part + $middle_services.reverse + $redis_services + $triple_store_services
+  $start_str = $start_services.map |$s| { "\"${s}\"" }.join(' ')
+  $stop_str = $stop_services.map |$s| { "\"${s}\"" }.join(' ')
+  $redis_str = $redis_services.map |$s| { "\"${s}\"" }.join(' ')
+-%>
+
+START_ORDER=(<%= $start_str %>)
+STOP_ORDER=(<%= $stop_str %>)
+REDIS_SERVICES=(<%= $redis_str %>)
+
+start_services() {
+  require_root
+  echo "Starting OntoPortal services..."
+  local STATUS=0
+  for service in "${START_ORDER[@]}"; do
+    echo "→ starting $service"
+    systemctl start "$service"
+    sleep 0.5
+    if ! systemctl is-active --quiet "$service"; then
+      echo -e "${RED}✗ Failed to start $service (status: $(systemctl is-active "$service"))${NC}"
+      STATUS=$((STATUS + 1))
+    fi
+  done
+  if [[ $STATUS -ne 0 ]]; then
+    echo -e "${RED}Some services failed to start ($STATUS).${NC}"
+  else
+    echo -e "${GRN}All services started successfully.${NC}"
+  fi
+  return $STATUS
+}
+
+stop_services() {
+  require_root
+  echo "Stopping OntoPortal services..."
+  local STATUS=0
+  for service in "${STOP_ORDER[@]}"; do
+    echo "→ stopping $service"
+    if ! systemctl stop "$service"; then
+      echo -e "${RED}✗ Failed to stop $service${NC}"
+      STATUS=$((STATUS + 1))
+    fi
+  done
+  if [[ $STATUS -ne 0 ]]; then
+    echo -e "${RED}Some services failed to stop ($STATUS).${NC}"
+  else
+    echo -e "${GRN}All services stopped successfully.${NC}"
+  fi
+  return $STATUS
+}
+
+restart_services() {
+  stop_services || true
+  start_services
+  return $?
+}
+
+check_redis_instance() {
+  local service="$1"
+  local port=$(systemctl show "$service" -p ExecStop | grep -o '\-p [0-9]\+' | awk '{print $2}')
+  if [ -n "$port" ]; then
+    echo
+    echo "---- Redis instance ($service) on port $port ----"
+    redis-cli -p "$port" info 2>/dev/null | grep -E '^(uptime_in_seconds|connected_clients|used_memory_human|total_commands_processed):'
+  else
+    echo "Could not determine Redis port for $service"
+  fi
+}
+
+clear_caches() {
+  require_root
+  echo "Clearing OntoPortal caches..."
+  local cache_services=(
+    memcached.service
+    redis-server-goo_cache.service
+    redis-server-http_cache.service
+  )
+  local STATUS=0
+  for service in "${cache_services[@]}"; do
+    echo "→ restarting $service"
+    if ! systemctl restart "$service"; then
+      echo -e "${RED}✗ Failed to restart $service${NC}"
+      STATUS=$((STATUS + 1))
+    fi
+  done
+  if [[ $STATUS -ne 0 ]]; then
+    echo -e "${RED}Some cache services failed to restart.${NC}"
+  else
+    echo -e "${GRN}All cache services restarted successfully.${NC}"
+  fi
+  return $STATUS
+}
+
+status_services() {
+  VERBOSE=false
+  if [[ "${1:-}" == "-v" ]]; then
+    VERBOSE=true
+  fi
+  STATUS=0
+  for service in "${START_ORDER[@]}"; do
+    isactive=$(systemctl is-active "$service" 2>/dev/null)
+    case "$isactive" in
+      active)   COLOR=$GRN ;;
+      inactive) COLOR=$YEL ;;
+      failed)   COLOR=$RED ;;
+      *)        COLOR=$NC ;;
+    esac
+    echo -e "${COLOR}$(printf '%-35s %s' "$service" "$isactive")${NC}"
+    [[ "$isactive" != "active" ]] && STATUS=$((STATUS + 1))
+  done
+  if $VERBOSE; then
+    echo ""
+    echo "---- SOLR status ----"
+    curl -s "http://localhost:8983/solr/admin/cores?action=STATUS"
+    for redis_service in "${REDIS_SERVICES[@]}"; do
+      check_redis_instance "$redis_service"
+    done
+  fi
+  return $STATUS
+}
+
+###############################################################################
+# set_perms <path> <owner> <group> <dir_mode> [recursive] [file_mode] [preserve_exec]
+###############################################################################
+set_perms() {
+  local path="$1"          owner="$2"   group="$3"   dir_mode="$4"
+  local recursive="${5:-false}"         # true | false  (default false)
+  local file_mode="${6:-$dir_mode}"     # file mode, default dir_mode
+  local preserve_exec="${7:-false}"     # true | false  (default false)
+
+  # --- validate file_mode is exactly 3 octal digits --------------------------
+  [[ $file_mode =~ ^[0-7]{3}$ ]] || {
+     echo "set_perms: file_mode must be exactly 3 octal digits (e.g. 644)" >&2
+     return 1
+  }
+
+  # Helper: run unless DRY_RUN=true
+  _run() { [[ ${DRY_RUN:-false} == true ]] && echo "+ $*" || "$@"; }
+
+  # Skip if path doesn’t exist
+  [[ -e "$path" ]] || { echo ">>> set_perms: '$path' missing – skipped"; return 0; }
+
+  # Banner
+  echo ">>> set_perms path=$path owner=$owner:$group dir=$dir_mode file=$file_mode rec=$recursive keep_exec=$preserve_exec dry=${DRY_RUN:-false}"
+
+  if [[ $recursive == true ]]; then
+    _run chown -R "$owner:$group" "$path"
+    _run find "$path" -type d -exec chmod "$dir_mode" {} +
+  else
+    _run chown "$owner:$group" "$path"
+    _run chmod "$dir_mode" "$path"
+  fi
+
+  # Files – simple fast path
+  if [[ $preserve_exec == false ]]; then
+    if [[ $recursive == true ]]; then
+      _run find "$path" -type f -exec chmod "$file_mode" {} +
+    else
+      for f in "$path"/*; do [[ -f $f ]] && _run chmod "$file_mode" "$f"; done
+    fi
+    return 0
+  fi
+
+  # ---------- exec‑preserve fast path ---------------------------------------
+  # Build exec‑augmented mode (adds +x to each non‑zero digit of file_mode)
+  local exec_mode=""
+  for i in 0 1 2; do                         # owner, group, other
+    digit=${file_mode:i:1}                   # grab one digit
+    (( digit != 0 )) && digit=$(( digit | 1 ))   # add +x if digit != 0
+    exec_mode+=$digit
+  done
+  # exec_mode now ready (e.g. 750 if file_mode was 640)
+
+  if [[ $recursive == true ]]; then
+    # One pass for executable files, one for non‑executables
+    _run find "$path" -type f -executable   -exec chmod "$exec_mode" {} +
+    _run find "$path" -type f ! -executable -exec chmod "$file_mode" {} +
+  else
+    for f in "$path"/*; do
+      [[ -f $f ]] || continue
+      if [[ -x $f ]]; then
+        _run chmod "$exec_mode" "$f"
+      else
+        _run chmod "$file_mode" "$f"
+      fi
+    done
+  fi
+}
+
+reset_permissions() {
+  require_root
+  local DRY_RUN=false
+
+  while [[ "$#" -gt 0 ]]; do
+    case "$1" in
+      -n|--dry-run)   DRY_RUN=true ;;
+    esac
+    shift
+  done
+
+  echo "Resetting OntoPortal file permissions..."
+
+  APP_ROOT_DIR="<%= $app_root_dir %>"
+  LOG_DIR="<%= $log_dir %>"
+  DATA_DIR="<%= $data_dir %>"
+
+  ADMIN_USER="<%= $admin_user %>"
+  BACKEND_USER="<%= $backend_user %>"
+  UI_USER="<%= $ui_user %>"
+  SHARED_GROUP="<%= $shared_group %>"
+
+  INCLUDE_UI=<%= $include_ui ? { true => 'true', false => 'false' } %>
+  INCLUDE_API=<%= $include_api ? { true => 'true', false => 'false' } %>
+
+  set_perms "$APP_ROOT_DIR" "$ADMIN_USER" "$SHARED_GROUP" 755
+  set_perms "$LOG_DIR" "$ADMIN_USER" "$SHARED_GROUP" 755
+  set_perms "$APP_ROOT_DIR/config" "$ADMIN_USER" "$SHARED_GROUP" 755 true 644
+  set_perms "$APP_ROOT_DIR/virtual_appliance" "$ADMIN_USER" "$ADMIN_USER" 755 true 644 true
+  set_perms "$APP_ROOT_DIR/virtual_appliance/appliance_config/bioportal_web_ui/config/credentials" "$ADMIN_USER" "$UI_USER" 750 true 640 true
+  set_perms "$APP_ROOT_DIR/.bundle" "$ADMIN_USER" "$ADMIN_USER" 755 true 644 true
+
+  if $INCLUDE_API; then
+    set_perms "$APP_ROOT_DIR/ontologies_api" "$ADMIN_USER" "$SHARED_GROUP" 750 true 640 true
+    set_perms "$DATA_DIR" "root" "root" 755
+    set_perms "$DATA_DIR/mgrep" "$BACKEND_USER" "$SHARED_GROUP" 755 true 664
+    set_perms "$DATA_DIR/reports" "$BACKEND_USER" "$SHARED_GROUP" 755 true 664
+    set_perms "$DATA_DIR/repository" "$BACKEND_USER" "$SHARED_GROUP" 2755 true 664 false
+    set_perms "$DATA_DIR/agraph" "agraph" "agraph" 750 true 640
+    set_perms "$LOG_DIR/ontologies_api" "$BACKEND_USER" "$SHARED_GROUP" 750 true 640
+    set_perms "$APP_ROOT_DIR/ncbo_cron" "$ADMIN_USER" "$SHARED_GROUP" 750 true 640 true
+    set_perms "$LOG_DIR/ncbo_cron" "$BACKEND_USER" "$SHARED_GROUP" 770 true 660
+  fi
+
+  if $INCLUDE_UI; then
+    set_perms "$APP_ROOT_DIR/bioportal_web_ui" "$ADMIN_USER" "$UI_USER" 755
+    set_perms "$APP_ROOT_DIR/bioportal_web_ui/releases" "$ADMIN_USER" "$UI_USER" 755 true 644 true
+    set_perms "$APP_ROOT_DIR/bioportal_web_ui/shared" "$ADMIN_USER" "$UI_USER" 755 true 644
+    set_perms "$APP_ROOT_DIR/bioportal_web_ui/repo" "$ADMIN_USER" "$ADMIN_USER" 755 true 644
+    set_perms "$LOG_DIR/ui" "$UI_USER" "$ADMIN_USER" 770 true 660
+    set_perms "$APP_ROOT_DIR/virtual_appliance/appliance_config/bioportal_web_ui/config/credentials" "$ADMIN_USER" "$UI_USER" 770 true 640
+  fi
+
+  echo -e "${GRN}Permissions reset complete.${NC}"
+}
+
+case "${1:-}" in
+  start)
+    start_services
+    exit $?
+    ;;
+  stop)
+    stop_services
+    exit $?
+    ;;
+  restart)
+    restart_services
+    exit $?
+    ;;
+  status)
+    shift
+    status_services "$@"
+    exit $?
+    ;;
+  clear-cache)
+    clear_caches
+    exit $?
+    ;;
+  reset-perms)
+    shift
+    reset_permissions "$@"
+    exit $?
+    ;;
+  help|--help|-h)
+    echo "Usage: sudo $0 <command> [options]"
+    echo
+    echo "Commands:"
+    echo "  start                   Start all enabled services in order"
+    echo "  stop                    Stop all services in reverse order"
+    echo "  restart                 Restart all services"
+    echo "  status [-v]             Show status of all services"
+    echo "  clear-cache             Restart cache services (memcached + redis)"
+    echo "  reset-perms [--dry-run] Reset permissions on OntoPortal directories"
+    echo
+    exit 0
+    ;;
+  *)
+    echo "Usage: sudo $0 {start|stop|restart|status [-v]|clear-cache|reset-perms [--try-run]|help}"
+    exit 1
+    ;;
+esac
+

@@ -2,7 +2,9 @@
   String $user,
   String $group,
   String $environment,
-  Stdlib::Absolutepath $app_root,
+  Array[Stdlib::Absolutepath] $read_write_paths,
+  Array[Stdlib::Absolutepath] $read_only_paths,
+  Stdlib::Absolutepath $app_dir,
   Stdlib::Absolutepath $bundle_bin,
 | -%>
 
@@ -11,19 +13,32 @@ Description=Unicorn server
 After=network.target
 
 [Service]
+Umask=0007
 ExecStart=<%= $bundle_bin %> exec unicorn -c config/unicorn.rb -E <%= $environment %>
 ExecStop=/usr/bin/kill -QUIT $MAINPID
 ExecReload=/usr/bin/kill -USR2 $MAINPID
-StandardOutput=syslog
-StandardError=syslog
 SyslogIdentifier=unicorn
 User=<%= $user %>
 Group=<%= $group %>
-PIDFile=<%= $app_root %>/shared/tmp/pids/unicorn.pid
-PermissionsStartOnly=false
-TimeoutStopSec=62
 PrivateTmp=yes
-WorkingDirectory=<%= $app_root %>/current
+ProtectSystem=full
+ProtectHome=yes
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+RestrictRealtime=yes
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=no # oLD sets SGID bit on repo dir
+ReadWritePaths=<%= $read_write_paths.join(' ') %>
+ReadOnlyPaths=<%= $read_only_paths.join(' ') %>
+RuntimeDirectory=unicorn
+
+PIDFile=/run/unicorn/unicorn.pid
+PermissionsStartOnly=false
+TimeoutStopSec=300
+WorkingDirectory=<%= $app_dir %>/current
 
 [Install]
 WantedBy=multi-user.target

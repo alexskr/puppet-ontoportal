@@ -1,144 +1,113 @@
 #
-# Class: ncbo::ontologies_api
-#
-# Description: This class manages common thing for ncbo bioportal core
-# nginx - unicorn https://github.com/defunkt/unicorn/blob/master/examples/nginx.conf
-# Parameters:
-#
-# Actions:
-#
-# Requires:
-#
-# Sample Usage:
+# Description: This class manages API/rest (ontologies_api) intra for ontoportal
 #
 class ontoportal::ontologies_api (
-
   Enum['staging', 'production', 'appliance', 'development'] $environment = 'staging',
-  Boolean $install_ruby            = true,
-  String $ruby_version             = '2.7.8',
-  String $owner                    = 'ontoportal',
-  String $group                    = 'ontoportal',
+  Boolean $manage_ruby            = true,
+  String $ruby_version             = '3.1.6',
+  String $admin_user               = 'op-admin',
+  String $service_account          = 'op-backend',
+  Boolean $manage_service_account  = true,
+  String $data_group               = 'opdata',
   Integer $logrotate_nginx         = 180,
   Integer $logrotate_unicorn       = 180,
-  Stdlib::Absolutepath $app_root   = '/srv/ontoportal/ontologies_api',
-  Stdlib::Host $domain             = 'data.ontoportal.org',
-  $slices = ['bis', 'ctsa', 'biblio', 'psi', 'cabig', 'cgiar', 'obo-foundry', 'umls', 'who-fic'], #used as SAN for letsencrypt, obo_foundary is problematic since it has underscore;
-  Boolean $ssl_redirect            = false,
-  Boolean $enable_letsencrypt      = true,
+  Stdlib::Host $domain             = 'data.demo.ontoportal.org',
+  $slices = [], #used as SAN for letsencrypt
+  Boolean $enable_https            = true,
+  Boolean $enable_https_redirect   = true,
+  Boolean $manage_letsencrypt      = false,
+
+  Stdlib::Absolutepath $app_root_dir = '/opt/ontoportal',
+  Stdlib::Absolutepath $app_dir    = "${app_root_dir}/ontologies_api",
+  Stdlib::Absolutepath $bundle_bin = '/usr/local/rbenv/shims/bundle',
+  Stdlib::Absolutepath $log_dir    = '/var/log/ontoportal/ontologies_api',
   Stdlib::Absolutepath $ssl_cert   = "/etc/letsencrypt/live/${domain}/cert.pem",
   Stdlib::Absolutepath $ssl_key    = "/etc/letsencrypt/live/${domain}/privkey.pem",
-  Stdlib::Absolutepath $ssl_chain  = "/etc/letsencrypt/live/${domain}/fullchain.pem",
-  Stdlib::Absolutepath $bundle_bin = '/usr/local/rbenv/shims/bundle',
-  Boolean $install_java            = true,
-  String $java_version             = 'java-11-openjdk-headless',
+  Stdlib::Absolutepath $ssl_fullchain = "/etc/letsencrypt/live/${domain}/fullchain.pem",
+
+  Boolean $manage_java            = true,
+  String $java_version             = 'openjdk-11-jre-headless',
   Stdlib::Port $port               = 80,
-  Stdlib::Port $ssl_port           = 443,
-  Boolean $enable_ssl              = true, #not nessesary for appliance
-  Boolean $enable_nginx_status     = true, #not requried for appliance
+  Stdlib::Port $port_https         = 443,
+  Boolean $enable_nginx_status     = false,
   Boolean $manage_nginx_repo       = true,
   Boolean $manage_firewall         = true,
   Stdlib::Absolutepath $data_dir   = '/srv/ontoportal',
-  Stdlib::Absolutepath $le_www_root = '/mnt/.letsencrypt',
-) inherits ontoportal::params {
+) {
   case $facts['os']['family'] {
+    # redhat is not fully supported
     'RedHat': {
-      if ($facts['os']['release']['major'] != '7') {
-        fail ('this module doesnt support this platform')
-      }
+      selinux::boolean { 'httpd_can_sendmail': }
+      selinux::boolean { 'httpd_can_network_connect': }
       require epel
+      stdlib::ensure_packages ([
+        'libxml2-devel', # for xml gem
+      ])
       Class[epel] -> Class[nginx]
     }
     'Debian': {
-      #not yet fully supported
+      stdlib::ensure_packages ([
+        'file', # needed by oLD mime detection
+        'libxml2-dev',
+        'raptor2-utils', # W: [strict_indent] indent should be 10 chars and is 8
+      ])
     }
   }
-  selinux::boolean { 'httpd_can_sendmail': }
-  selinux::boolean { 'httpd_can_network_connect': }
+
+  include ontoportal::nginx
 
   if $manage_firewall {
-    firewall_multi { "34 allow inbound API on port ${port}":
-      dport  => [$port, $ssl_port],
-      proto  => tcp,
-      action => accept,
+    firewall_multi { "34 allow inbound API on port ${port} and ${port_https}":
+      dport => [$port, $port_https],
+      proto => tcp,
+      jump  => accept,
     }
   }
-  ensure_packages( [
-      $ontoportal::params::pkg_mariadb_dev,
-      $ontoportal::params::pkg_libxml2_dev,
-  ])
 
-  # ontoportal/deployer user needs sudo to restart unicorn on deployments
+  # ontoportal ops/deployer user needs sudo to restart unicorn on deployments
   sudo::conf { 'unicorn':
     priority => 55,
-    content  => "${owner} ALL=(ALL) NOPASSWD: /bin/systemctl stop unicorn, /bin/systemctl start unicorn, /bin/systemctl restart unicorn",
+    content  => "${admin_user} ALL=(ALL) NOPASSWD: /bin/systemctl stop unicorn, /bin/systemctl start unicorn, /bin/systemctl restart unicorn",
   }
 
-  File {
-    owner => 'root',
-    group => $group,
-    mode  => '0775',
+  if $manage_service_account {
+    include ontoportal::user::backend
   }
 
   #paths
-  file { [$app_root]:
+  file { [$app_dir, "${app_dir}/shared" ]:
     ensure => directory,
-    owner  => $owner,
-    group  => $group,
-    mode   => '0775',
+    owner  => $admin_user,
+    group  => $data_group,
+    mode   => '0750',
+  }
+  -> file { [$log_dir]:
+    ensure => directory,
+    owner  => $service_account,
+    group  => $data_group,
+    mode   => '0770',
+  }
+  -> file { "${app_dir}/shared/log":
+    ensure => link,
+    target => $log_dir,
   }
 
-  # FIXME move autofs to role
-  if $environment != 'appliance' {
-    file { ["${data_dir}/repository" ]:
-      ensure => link,
-      target => "/srv/ncbo/share/env/${environment}/repository",
-    }
-    require profile::autofs::ncbo_share
-  }
-
-  #required for building some of the ruby gems
-  if $install_ruby {
-    class { 'ontoportal::rbenv':
-      ruby_version => $ruby_version,
-    }
-  }
-
-  class { 'nginx':
-    manage_repo              => $manage_nginx_repo,
-    # https://forge.puppet.com/modules/puppet/nginx#idempotency-with-nginx-1150-and-later
-    nginx_version            => '1.20',
-    passenger_package_ensure => false,
-    client_max_body_size     => '1G',
-    http_tcp_nopush          => 'on',
-    gzip_proxied             => 'any',
-    gzip_types               => 'text/plain text/css application/x-javascript text/xml application/xml application/xml+rss application/json text/javascript',
-    server_purge             => true,
-    confd_purge              => true,
+  if $manage_ruby and !defined(Ontoportal::Rbenv[$ruby_version]) {
+    ontoportal::rbenv { $ruby_version: }
   }
 
   nginx::resource::upstream { 'ontologies_api':
     members => {
-      'localhost' => {
-        server       => "unix:${app_root}/shared/tmp/sockets/unicorn.sock",
+      'api' => {
+        server       => "unix:/run/unicorn/unicorn.sock",
         fail_timeout => '0s',
       },
     },
   }
-
-  nginx::resource::location { 'letsencrypt':
-    ensure              => present,
-    ssl                 => false,
-    server              => 'ontologies_api',
-    index_files         => [],
-    location            => '^~ /.well-known/acme-challenge/',
-    www_root            => $le_www_root ,
-    location_cfg_append => {
-      default_type => 'text/plain', },
-  }
-
-  if  $enable_ssl and $enable_letsencrypt {
-    # FIXME move autofs to role
-    require profile::autofs::ncbo_le
+  # enable https redirect only if we have valid certs
+  #$_enable_https_redirect = $enable_https and $enable_https_redirect and $manage_letsencrypt
+  $_enable_https_redirect = $enable_https and $enable_https_redirect and $manage_letsencrypt
+  if $enable_https and $manage_letsencrypt {
     $_san = $slices.map |$item| { "${item}.${domain}" }
     ontoportal::letsencrypt { $domain:
       cron_success_command => '/bin/systemctl reload nginx.service',
@@ -147,54 +116,72 @@ class ontoportal::ontologies_api (
     }
   }
 
-  # enable TLS if letsencrypt cert is generated.  FIXME This requires second puppet run so this should be refactored
-  if $enable_letsencrypt {
-    $_enable_ssl = $domain in $facts['letsencrypt_directory']
+  if $manage_letsencrypt {
+    # enable HTTPS if letsencrypt cert is generated
+    # FIXME This method requires two puppet agent runs; first to request Letsencrypt certs
+    # and second run to update cert paths.  Refactor is needed
+    $enable_ssl = $domain in $facts['letsencrypt_directory']  # check whether letsencrypt cert is in place
+    $_ssl_cert  = $ssl_fullchain #use full chain
+    $_ssl_key   = $ssl_key
   } else {
-    $_enable_ssl = $enable_ssl
+    $enable_ssl = $enable_https
+    # set to a self-signed cert so that nginx doesn't fall over before we get our cert
+    $_ssl_cert  = '/etc/ssl/certs/ssl-cert-snakeoil.pem'
+    $_ssl_key   = '/etc/ssl/private/ssl-cert-snakeoil.key'
+  }
+
+  # don't enable default server for nginx if its running on standard ports,
+  # just in case UI is running on the same machine
+  $listen_options = ($port == 80 and $port_https == 443) ? {
+    true  => undef,
+    false => 'default_server',
   }
 
   nginx::resource::server { 'ontologies_api':
     ensure           => present,
-    server_name      => [$domain, "*.${domain}", $facts['networking']['fqdn']],
+    server_name      => [$domain, "*.${domain}"],
     listen_port      => $port,
-    ssl_port         => $ssl_port,
-    listen_options   => 'default_server',
+    ssl_port         => $port_https,
+    listen_options   => $listen_options,
     proxy            => 'http://ontologies_api' ,
     index_files      => [],
-    ssl              => $_enable_ssl,
-    ssl_redirect     => $ssl_redirect,
-    ssl_cert         => $ssl_chain,
-    ssl_key          => $ssl_key,
+    ssl              => $enable_ssl,
+    ssl_redirect     => $_enable_https_redirect,
+    ssl_cert         => $_ssl_cert,
+    ssl_key          => $_ssl_key,
     proxy_set_header => ['X-Forwarded-For $proxy_add_x_forwarded_for', 'Host $http_host', 'X-Real-IP $remote_addr'],
-    # ssl_session_cache => 'shared:SSL:10m',
   }
 
-  if $enable_nginx_status {
-    nginx::resource::location { '/nginx_status':
-      ensure         => present,
-      server         => 'ontologies_api',
-      ssl            => false,
-      stub_status    => true,
-      location_allow => ['127.0.0.1'],
-      location_deny  => ['all'],
-    }
-  }
-
-  #java required for owlapi/owl validation
-  if $install_java {
+  # java is required for owlapi_wrapper
+  if $manage_java {
     class { 'java':
       package => $java_version,
     }
   }
+
+  $read_write_paths = [
+    '/run/unicorn', # pid, socket
+    $log_dir,
+    "${data_dir}/repository",
+    "${data_dir}/reports", # api can refresh reports. although that functionality should be moved to ncbo_cron
+  ]
+
+  $read_only_paths = [
+    #  "/opt/ontoportal/virtual_appliance/utils", #contains ip look up util.  or maybe its better to move it to /usr/local/bin?
+#    "${app_dir}/config", # contains site_config.rb
+#    "${app_dir}/current", # app lives here
+  ]
+
   systemd::unit_file { 'unicorn.service':
     ensure  => 'present',
     content => epp ('ontoportal/unicorn.service.epp', {
-        'user'        => $owner,
-        'group'       => $group,
-        'app_root'    => $app_root,
-        'bundle_bin'  => $bundle_bin,
-        'environment' => $environment,
+        'user'             => $service_account,
+        'group'            => $data_group,
+        'app_dir'          => $app_dir,
+        'bundle_bin'       => $bundle_bin,
+        'environment'      => $environment,
+        'read_only_paths'  => $read_only_paths,
+        'read_write_paths' => $read_write_paths,
     }),
   }
   ~> service { 'unicorn':
@@ -205,7 +192,7 @@ class ontoportal::ontologies_api (
   }
 
   logrotate::rule { 'unicorn':
-    path         => "${app_root}/current/log/*.log",
+    path         => "${log_dir}/*.log",
     rotate       => $logrotate_unicorn,
     rotate_every => 'day',
     copytruncate => true,
@@ -213,18 +200,7 @@ class ontoportal::ontologies_api (
     compress     => true,
     missingok    => true,
     su           => true,
-    su_user      => $owner,
-    su_group     => $group,
-  }
-
-  # FIXME move log shippment to role
-  if $environment == 'production' {
-    file { ['/etc/cron.d/ontologies_api_copy_logs']:
-      content => "00 01 * * * ${owner} mv ${app_root}/shared/log/production.*.gz /srv/ncbo/share/env/production/logs/rest/${trusted['hostname']}/pending > /dev/null 2>&1
-00 02 * * * ${owner} find ${app_root}/shared/log/*.gz -mtime +7 -delete > /dev/null 2>&1/n",
-      owner   => 'root',
-      group   => 'root',
-      mode    => '0644',
-    }
+    su_user      => $service_account,
+    su_group     => $service_account,
   }
 }

@@ -1,352 +1,267 @@
-########################################################################
-
-# this is more of a role than a profile.
+# @summary Role class for configuring the OntoPortal Appliance
+#
+# This class configures the base system for the OntoPortal virtual appliance.
+# It sets up users, system packages, system services, application directories, and roles for the UI/API.
+#
+# Intended to be used as a top-level "role" class during image building or provisioning.
+#
+# @param include_ui Whether to enable the UI component.
+# @param include_api Whether to enable the API component.
+# @param manage_firewall Whether to manage firewall rules.
+# @param manage_letsencrypt Whether to manage Let's Encrypt SSL certificate generation.
+# @param manage_selinux Whether to configure SELinux (not fully supported).
+# @param manage_va_repo Whether to clone the virtual appliance Git repository.
+# @param manage_ssh_user Whether to create an sysadmin user for ssh logins (also enabled during Packer builds).
+# @param sysadmin_user sysadmin local account
+# @param admin_user OntoPortal deployer/admin/ops user
+# @param backend_user service account for running API and ncbo_cron services.
+# @param ui_user service account for running UI/puma/rails services.
+# @param shared_group The Unix group for application data.
+# @param appliance_version The version of the OntoPortal appliance to deploy.
+# @param data_dir The root directory for data volumes.
+# @param app_root_dir The root directory for the application code.
+# @param log_root_dir The root directory for the application logs.
+# @param api_port The HTTP port for the API server.
+# @param api_port_https The HTTPS port for the API server.
+# @param ui_domain_name The domain name to use for the UI component.
+# @param api_domain_name The domain name to use for the API component.
+# @param api_ruby_version The Ruby version to use for the API component.
+# @param ui_ruby_version The Ruby version to use for the UI component (defaults to API version).
+# @param goo_cache_maxmemory Max memory allocated to the Goo cache layer.
+# @param http_cache_maxmemory Max memory allocated to the HTTP cache layer.
+# @param triple_store triple store backend to manage can be 4store, agraph or external.
+#
 class ontoportal::appliance (
-  Boolean $ui = true,
-  Boolean $api = true,
-  $owner = 'ontoportal',
-  $group = 'ontoportal',
-  String $appliance_version = '3.2',
-  String $ruby_version = '2.7.8',
-  $data_dir = '/srv/ontoportal/data',
-  $app_root_dir  = '/srv/ontoportal',
-  $ui_domain_name = 'appliance.ontoportal.org',
-  $api_domain_name = 'data.appliance.ontoportal.org',
-  Integer $api_port = 8080,
-  Integer $api_ssl_port = 8443,
-  Boolean $manage_selinux = true,
+
+  # Feature toggles
+  Boolean $include_ui  = true,
+  Boolean $include_api = true,
+  Enum['4store', 'agraph', 'external'] $triple_store = 'agraph',
+
+  # System integration options
+  Boolean $manage_firewall    = true,
+  Boolean $manage_letsencrypt = false,
+  Boolean $manage_selinux     = false,
+  Boolean $manage_va_repo     = false,
+  Boolean $manage_ssh_user    = true,
+
+  # Users & permissions
+  String $admin_user         = 'op-admin',
+  String $backend_user       = 'op-backend',
+  String $ui_user            = 'op-ui',
+  String $shared_group       = 'opdata',
+  String $sysadmin_user      = 'ubuntu',
+
+  Boolean $manage_admin_user    = true,
+  Boolean $manage_sysadmin_user = false,
+
+  Array[String] $admin_sshkeys    = [],
+  Array[String] $sysadmin_sshkeys = [],
+
+  # Paths
+  Stdlib::Absolutepath $app_root_dir = '/opt/ontoportal',
+  Stdlib::Absolutepath $data_dir     = '/srv/ontoportal',
+  Stdlib::Absolutepath $log_root_dir = '/var/log/ontoportal',
+
+  # Application settings
+  String $appliance_version    = '4.0',
+  Stdlib::Port $api_port       = 8080,
+  Stdlib::Port $api_port_https = 8443,
+  Boolean $enable_https        = true,
+
+  # Domain & Ruby versions
+  String $ui_domain_name   = 'demo.ontoportal.org',
+  String $api_domain_name  = 'data.demo.ontoportal.org',
+  String $ui_ruby_version  = '3.1.6',
+  String $api_ruby_version = $ui_ruby_version,
+
+  # Memory tuning
+  String $goo_cache_maxmemory  = '512M',
+  String $http_cache_maxmemory = '512M',
+
+  # Log rotate/retention
+  Integer $logrotate_ui = 14,
+  Integer $logrotate_nginx = 14,
+
 ) {
+  Class['ontoportal::appliance::system']
+  -> Class['ontoportal::appliance::user']
+  -> Class['ontoportal::appliance::layout']
 
-  include ontoportal::firewall
-  include ontoportal::firewall::ssh
-
-  # system utilities/libraries
-  case $facts['os']['family'] {
-    'RedHat': {
-      require epel
-      Class[epel] -> Class[nginx]
-      $packages = [
-        'git-lfs',
-        'bind-utils',
-        'bzip2',
-        'bash-completion',
-        'curl',
-        'lsof',
-        'ncdu',
-        'nano',
-        'htop',
-        'rsync',
-        'screen',
-        'sysstat',
-        'time',
-        'unzip',
-        'vim-enhanced',
-        'wget',
-        'zip',
-        'rdate',
-        'tree',
-        'tmux',
-        'yum-utils',
-        'telnet',
-      ]
-    }
-    'Debian': {
-      $packages = [
-        'git-lfs',
-        'bind9-dnsutils',
-        'bzip2',
-        'bash-completion',
-        'curl',
-        'lsof',
-        'ncdu',
-        'nano',
-        'htop',
-        'rsync',
-        'screen',
-        'sysstat',
-        'time',
-        'unzip',
-        'vim',
-        'wget',
-        'zip',
-        'rdate',
-        'tree',
-        'tmux',
-        'telnet',
-      ]
-    }
-    default: { fail('unsupported platform') }
+  class { 'ontoportal::appliance::system':
+    manage_firewall   => $manage_firewall,
+    appliance_version => $appliance_version,
   }
 
-  ensure_packages( $packages )
+  # optionally create ssh login account; don't create it in aws ami
+  $_manage_sysadmin_user = ($manage_sysadmin_user or $facts['packer_build']) and !$facts['ec2_metadata']
 
-  include nscd
-
-  kernel_parameter { 'net.ifnames':
-    value => '0',
+  class { 'ontoportal::appliance::user':
+    admin_user           => $admin_user,
+    ui_user              => $ui_user,
+    backend_user         => $backend_user,
+    sysadmin_user        => $sysadmin_user,
+    shared_group         => $shared_group,
+    manage_sysadmin_user => $_manage_sysadmin_user,
+    admin_sshkeys        => $admin_sshkeys,
+    sysadmin_sshkeys     => $sysadmin_sshkeys,
   }
 
-  class { 'motd':
-    content => "OntoPortal Appliance v${appliance_version}\n",
-  }
-
-  # need to disable root ssh for AWS ami
-  class { 'ssh::server':
-    options => {
-      'HostKey'              => [
-        '/etc/ssh/ssh_host_ed25519_key',
-        '/etc/ssh/ssh_host_rsa_key',
-        '/etc/ssh/ssh_host_ecdsa_key',
-      ],
-
-      'PermitRootLogin'      => 'no',
-      'PrintMotd'            => 'yes',
-      'SyslogFacility'       => 'AUTHPRIV',
-      'PermitEmptyPasswords' => 'no',
-      'Ciphers'              => 'aes128-ctr,aes192-ctr,aes256-ctr,aes128-gcm@openssh.com,aes256-gcm@openssh.com,chacha20-poly1305@openssh.com',
-      'KExAlgorithms'        => 'diffie-hellman-group14-sha1,diffie-hellman-group-exchange-sha256,ecdh-sha2-nistp256,ecdh-sha2-nistp384,ecdh-sha2-nistp521,curve25519-sha256@libssh.org,gss-group14-sha1-',
-      'GSSAPIKExAlgorithms'  => 'gss-group14-sha1-',
-    },
-  }
-
-  ##http://lonesysadmin.net/2013/12/06/use-elevator-noop-for-linux-virtual-machines/
-  ##https://kb.vmware.com/s/article/2011861
-  #if $is_virtual {
-  #  kernel_parameter { "elevator":
-  #    ensure  => present,
-  #    value => "noop",
-  #  }
-  #  sysctl {'vm.swappiness': value => '0' }
-  #}
-
-  case $facts['virtual'] {
-    'zvmware': {
-      include openvmtools
-    }
-    'z': { #disabled this for the time being; it is currently handled with scripts during packaging 
-      package { 'cloud-init':
-        ensure => installed,
-      }
-      -> package { 'cloud-init-vmware-guestinfo':
-        ensure => installed,
-        source => 'https://github.com/vmware/cloud-init-vmware-guestinfo/releases/download/v1.1.0/cloud-init-vmware-guestinfo-1.1.0-1.el7.noarch.rpm',
-      }
-      package { 'cloud-utils-growpart': #automatically grows partition on first deployment
-        ensure => installed,
-      }
-    }
-  }
-
-  # odd depenency cyle workaround - rbenv installs git and git class gets included somewere
-  class { 'git':
-    package_manage => false,
-  }
-
-  ensure_packages([
-      'linux-firmware',
-    ],
-    { ensure => absent },
-  )
-
-  ##aws cloud-init
-## ensure_packages (['cloud-init'])
-##   file { '/etc/cloud/cloud.cfg.d/08_ontoportal.cfg':
-##     ensure  => present,
-##     owner   => root,
-##     group   => root,
-##     mode    => '0644',
-##     content => '#cloud-config
-## runcmd:
-##  - ${app_root_dir}/virtual_appliance/utils/bootstrap/firstboot.rb
-##  - rm /root/firstboot
-## ',
-##   }
-
-  user { 'ontoportal':
-    ensure     => 'present',
-    comment    => 'OntoPortal Service Account',
-    system     => true,
-    managehome => true,
-    # ontoportal user needs to copy war files for deployment so adding to tomcat group is an easy fix but could be problematic
-    # groups     => ['tomcat'],
-    password   => '!!',
-    shell      => '/bin/bash',
-    uid        => '888',
-  }
-
-  file { '/home/ontoportal/.gemrc':
-    owner   => 'ontoportal',
+  file { '/etc/profile.d/ontoportal.sh':
+    owner   => 'root',
     mode    => '0644',
-    content => 'install: --no-document',
-    require => User['ontoportal'],
-  }
-
-  group { 'ontoportal':
-    ensure => present,
-    gid    => '888',
-  }
-
-  file_line { 'ontoportal ruby gem path':
-    path    => '/home/ontoportal/.bashrc',
-    line    => 'which ruby >/dev/null && which gem >/dev/null && PATH="$(ruby -r rubygems -e \'puts Gem.user_dir\')/bin:$PATH"',
-    require => User['ontoportal'],
-  }
-
-  # ssh user
-  user { 'centos':
-    ensure     => 'present',
-    comment    => 'OntoPortal SysAdmin User',
-    managehome => true,
-    # password is set primarely for packaging appliance via packer and it is reset by cleanup scripts
-    password   => '$6$z3zd7CSW$zlHFTTjkpBVp8fhpi5ZwdDxHFd.bfBK/b9jktYWwueLY/ddUf.31Y2zDcIsGuNQ4L/qBHoE8MCJXraQICAldX.',
-    shell      => '/bin/bash',
-  }
-  # Create Directories (including parent directories)
-  file { [$app_root_dir,
-    ]:
-      ensure => directory,
-      owner  => $owner,
-      group  => $group,
-      mode   => '0775',
-  }
-
-  class { 'ontoportal::rbenv':
-    ruby_version => $ruby_version,
+    content => epp('ontoportal/etc/profile.d/ontoportal', {
+        #  'data_dir'     => $data_dir,
+        'app_root_dir' => $app_root_dir,
+        'log_dir'      => $log_root_dir,
+        'admin_user'   => $admin_user,
+    }),
   }
 
   # tomcat is installed on both ui for biomixer and api for annotator+
   class { 'ontoportal::tomcat':
-    port   => 8082,
-    #####    before => User['ontoportal'],
+    port => 8082,
   }
 
-  if $ui {
-    contain ontoportal::appliance::ui
+  class { 'ontoportal::appliance::layout':
+    include_ui   => $include_ui,
+    include_api  => $include_api,
+    app_root_dir => $app_root_dir,
+    log_root_dir => $log_root_dir,
+    data_dir     => $data_dir,
+    admin_user   => $admin_user,
+    backend_user => $backend_user,
+    ui_user      => $ui_user,
+    shared_group => $shared_group,
   }
 
-  if $api {
-    contain ontoportal::appliance::api
-  }
-
-  if $manage_selinux {
-    class { 'selinux':
-      mode => disabled,
+  if $include_ui {
+    class { 'ontoportal::appliance::ui':
+      ui_domain_name     => $ui_domain_name,
+      app_root_dir       => $app_root_dir,
+      log_dir            => $log_root_dir,
+      ruby_version       => $ui_ruby_version,
+      admin_user         => $admin_user,
+      group              => $ui_user,
+      ui_user            => $ui_user,
+      manage_firewall    => $manage_firewall,
+      manage_letsencrypt => $manage_letsencrypt,
+      enable_https       => $enable_https,
+      logrotate_ui       => $logrotate_ui,
+      logrotate_nginx    => $logrotate_nginx,
     }
+    Class['ontoportal::appliance::layout'] ->  Class['ontoportal::appliance::ui']
   }
 
-  $sudo_string = 'Cmnd_Alias ONTOPORTAL = /usr/local/bin/oprestart, /usr/local/bin/opstop, /usr/local/bin/opstart, /usr/local/bin/opstatus, /usr/local/bin/opclearcaches
-Cmnd_Alias NGINX = /bin/systemctl start nginx, /bin/systemctl stop nginx, /bin/systemctl restart nginx
-Cmnd_Alias NCBO_CRON = /bin/systemctl start ncbo_cron, /bin/systemctl stop ncbo_cron, /bin/systemctl restart ncbo_cron
-Cmnd_Alias SOLR = /bin/systemctl start solr, /bin/systemctl stop solr, /bin/systemctl restart solr
-Cmnd_Alias FSHTTPD = /bin/systemctl start 4s-httpd, /bin/systemctl stop 4s-httpd, /bin/systemctl restart 4s-httpd
-Cmnd_Alias FSBACKEND = /bin/systemctl start 4s-backend, /bin/systemctl stop 4s-backend, /bin/systemctl restart 4s-backend
-Cmnd_Alias FSBOSS = /bin/systemctl start 4s-boss, /bin/systemctl stop 4s-boss, /bin/systemctl restart 4s-boss
-Cmnd_Alias REDIS = /bin/systemctl start redis-server-*.service , /bin/systemctl stop redis-server-*.service , /bin/systemctl restart redis-server-*.service
-Cmnd_Alias UTILS = /usr/sbin/virt-what, /srv/ontoportal/virtual_appliance/utils/bootstrap/gen_tlscert.sh
-Cmnd_Alias AG = /usr/sbin/service agraph start, /usr/sbin/service agraph status /usr/sbin/service agraph stop
-ontoportal ALL = NOPASSWD: ONTOPORTAL, NGINX, NCBO_CRON, SOLR, FSHTTPD, FSBACKEND, FSBOSS, REDIS, UTILS, AG
-'
-
-  #do not purge sudo config files.  packer build relies on them.
-  class { 'sudo':
-    # purge               => false,
-    # config_file_replace => false,
-  }
-
-  # required for vagrant builds; it is purged
-  sudo::conf { 'vagrant':
-    content => '%vagrant ALL=(ALL) NOPASSWD: ALL',
-  }
-
-  sudo::conf { 'centos':
-    content => '%centos ALL=(ALL) NOPASSWD: ALL',
+  if $include_api {
+    class { 'ontoportal::appliance::api':
+      app_root_dir         => $app_root_dir,
+      log_root_dir         => $log_root_dir,
+      data_dir             => $data_dir,
+      admin_user           => $admin_user,
+      backend_user         => $backend_user,
+      shared_group         => $shared_group,
+      appliance_version    => $appliance_version,
+      api_domain_name      => $api_domain_name,
+      ruby_version         => $api_ruby_version,
+      owner                => $admin_user,
+      group                => $shared_group,
+      manage_letsencrypt   => $manage_letsencrypt,
+      manage_firewall      => $manage_firewall,
+      goo_cache_maxmemory  => $goo_cache_maxmemory,
+      http_cache_maxmemory => $http_cache_maxmemory,
+      api_port             => $api_port,
+      api_port_https       => $api_port_https,
+      enable_https         => $enable_https,
+      triple_store         => $triple_store,
+    }
+    Class['ontoportal::appliance::layout'] ->  Class['ontoportal::appliance::api']
   }
 
   sudo::conf { 'appliance':
-    content => $sudo_string,
+    content => epp('ontoportal/etc/sudoers.d/appliance', {
+        'user' => $admin_user,
+    }),
   }
 
-  $issue_string='\S
-Kernel \r on an \m
-OntoPortal Appliance IP: \4
-'
-
-  file { '/etc/issue':
-    owner   => root,
-    group   => root,
-    mode    => '0644',
-    content => $issue_string,
+  # wrapper for managing services
+  file { '/usr/local/ontoportal/bin/opctl':
+    ensure  => file,
+    mode    => '0755',
+    owner   => 'root',
+    group   => 'root',
+    content => epp('ontoportal/usr/local/bin/opctl.epp', {
+        'triple_store' => $triple_store,
+        'include_api'  => $include_api,
+        'include_ui'   => $include_ui,
+        'app_root_dir' => $app_root_dir,
+        'log_dir'      => $log_root_dir,
+        'data_dir'     => $data_dir,
+        'admin_user'   => $admin_user,
+        'backend_user' => $backend_user,
+        'ui_user'      => $ui_user,
+        'shared_group' => $shared_group,
+    }),
+  }
+  -> file { '/usr/local/bin/opctl':
+    ensure => simlink,
+    target => '/usr/local/ontoportal/bin/opctl',
   }
 
-  #utils
-  file { '/usr/local/bin/oprestart':
-    ensure => symlink,
-    target => "${app_root_dir}/virtual_appliance/utils/oprestart",
-  }
-  file { '/usr/local/bin/opstop':
-    ensure => symlink,
-    target => "${app_root_dir}/virtual_appliance/utils/opstop",
-  }
-  file { '/usr/local/bin/opstart':
-    ensure => symlink,
-    target => "${app_root_dir}/virtual_appliance/utils/opstart",
-  }
-  file { '/usr/local/bin/opstatus':
-    ensure => symlink,
-    target => "${app_root_dir}/virtual_appliance/utils/opstatus",
-  }
-  file { '/usr/local/bin/opclearcaches':
-    ensure => symlink,
-    target => "${app_root_dir}/virtual_appliance/utils/opclearcaches",
-  }
-  vcsrepo { "${app_root_dir}/virtual_appliance":
-    ensure   => present,
-    provider => git,
-    user     => $owner,
-    group    => $group,
-    source   => 'https://github.com/ncbo/virtual_appliance',
-    branch   => $appliance_version,
-    require  => User[$owner],
-  }
+  $va_path = "${app_root_dir}/virtual_appliance"
 
-  -> file { "${app_root_dir}/virtual_appliance":
-    ensure => directory,
-    owner  => $owner,
-    group  => $group,
+  # i don't really like it like this; but will fix it later
+  file { '/usr/local/ontoportal/bin/infra_discovery.rb':
+    ensure => file,
+    source => "file://${va_path}/infra/infra_discovery.rb",
+    owner  => 'root',
+    group  => 'root',
     mode   => '0755',
+  }
+
+  file { '/usr/local/ontoportal/bin/gen_tlscert':
+    ensure => file,
+    source => "file://${va_path}/infra/gen_tlscert",
+    owner  => 'root',
+    group  => 'root',
+    mode   => '0755',
+  }
+
+  file { '/usr/local/ontoportal/bin/cloudmeta':
+    ensure => file,
+    source => "file://${va_path}/infra/cloudmeta",
+    owner  => 'root',
+    group  => 'root',
+    mode   => '0755',
+  }
+
+  if $manage_va_repo {
+    vcsrepo { $va_path:
+      ensure   => present,
+      provider => git,
+      user     => $admin_user,
+      group    => $admin_user,
+      source   => 'https://github.com/ncbo/virtual_appliance',
+      branch   => $appliance_version,
+      require  => Class['ontoportal::user::admin'],
+      after    => File[$va_path],
+    }
   }
 
   # systemd service for the initial appliance configuration.
   # Ideally it should be executed by cloud-init but it is supported on all platforms so we rely on systemd
   # https://cloudinit.readthedocs.io/en/latest/topics/boot.html
   # fistboot script needs to run after cloud-init is completely done.
-  $firstboot = @("FIRSTBOOT"/L)
-    [Unit]
-    Description=Initial Ontoportal Appliance reconfiguration which runs only on first boot.
-    After=network-online.target cloud-final.service 4s-boss.service 4s-backend.service 4s-httpd.service redis-server-goo.service redis-server-http.service redis-server-persistent.service nginx.service
-    ConditionPathExists=${app_root_dir}/firstboot
-    #Before=getty@tty6.service
-
-    [Service]
-    Type=oneshot
-    RemainAfterExit=yes
-    ExecStartPre=/usr/bin/sleep 5
-    ExecStart=${app_root_dir}/virtual_appliance/utils/bootstrap/firstboot.rb
-    ExecStartPost=/usr/bin/rm ${app_root_dir}/firstboot
-    User=ontoportal
-    Group=ontoportal
-    TimeoutSec=0
-    StandardOutput=journal+console
-
-    [Install]
-    WantedBy=multi-user.target
-    | FIRSTBOOT
-
   systemd::unit_file { 'ontoportal-firstboot.service':
     ensure  => present,
-    content => $firstboot,
+    content => epp ('ontoportal/firstboot.service.epp', {
+        'firstboot_lockfile' => "${app_root_dir}/config/firstboot",
+        'firstboot_path'     => "${va_path}/infra/firstboot.rb",
+        'user'               => $admin_user,
+    }),
   }
   -> service { 'ontoportal-firstboot':
     enable => true,
   }
+  include ontoportal::appliance::cleanup
 }
