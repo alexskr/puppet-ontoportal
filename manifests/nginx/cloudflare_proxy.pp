@@ -10,7 +10,7 @@ class ontoportal::nginx::cloudflare_proxy (
     owner   => 'root',
     group   => 'root',
     mode    => '0644',
-    source  => 'puppet:///modules/ontoportal/etc/nginx/cloudflare_real_ip.conf',
+    source  => 'puppet:///modules/ontoportal/etc/nginx/conf.d/cloudflare_real_ip.conf',
     replace => false, #rely on the cronjob to get latest updates"
   }
 
@@ -20,7 +20,7 @@ class ontoportal::nginx::cloudflare_proxy (
       owner   => 'root',
       group   => 'root',
       mode    => '0644',
-      source  => 'puppet:///modules/ontoportal/etc/nginx/cloudflare_proxy_ip_restrict.conf',
+      source  => 'puppet:///modules/ontoportal/etc/nginx/conf.d/cloudflare_proxy_ip_restrict.conf',
       replace => false, #rely on the cronjob to get latest updates"
     }
   }
