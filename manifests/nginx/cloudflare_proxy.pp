@@ -7,13 +7,13 @@
 #
 # @param ensure
 #   Whether to ensure the Cloudflare proxy configuration is present or absent
-# @param proxy_restrict
+# @param block_non_cloudflare
 #   Whether to enable proxy restriction for Cloudflare IPs. When enabled, only requests
 #   from Cloudflare IPs will be accepted, providing an additional security layer.
 #
 class ontoportal::nginx::cloudflare_proxy (
   Enum['present', 'absent'] $ensure = 'present',
-  Boolean $proxy_restrict = false,
+  Boolean $block_non_cloudflare     = false,
 ) {
   # realip nginx extention required for this to work comes in nginx-extras
   stdlib::ensure_packages (['nginx-extras'])
@@ -27,7 +27,7 @@ class ontoportal::nginx::cloudflare_proxy (
     replace => false, #rely on the cronjob to get latest updates"
   }
 
-  if $proxy_restrict {
+  if $block_non_cloudflare {
     file { '/usr/local/bin/nginx-cloudflare_real_ip.sh':
       ensure  => $ensure,
       owner   => 'root',
@@ -48,7 +48,7 @@ class ontoportal::nginx::cloudflare_proxy (
   # Add weekly cron job to update Cloudflare IPs
   cron::job { 'update_cloudflare_ips':
     ensure  => $ensure,
-    command => "/path/to/cloudflare_proxy_config.sh ${proxy_restrict}",
+    command => "/path/to/cloudflare_proxy_config.sh ${block_non_cloudflare}",
     minute  => '0',
     hour    => '*/1',
     user    => 'root',
