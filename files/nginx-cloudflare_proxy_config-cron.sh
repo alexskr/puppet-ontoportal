@@ -6,7 +6,7 @@
 
 ENABLE_RESTRICT=${1:-false}
 CLOUDFLARE_REAL_IP_PATH=/etc/nginx/conf.d/cloudflare_real_ip.conf
-CLOUDFLARE_RESTRICT_PATH=/etc/nginx/conf.d/cloudflare_proxy_restrict.conf
+CLOUDFLARE_RESTRICT_PATH=/etc/nginx/conf.d/cloudflare_proxy_ip_restrict.conf
 
 echo "#Cloudflare" > $CLOUDFLARE_REAL_IP_PATH;
 echo "" >> $CLOUDFLARE_REAL_IP_PATH;

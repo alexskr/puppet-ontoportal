@@ -28,7 +28,7 @@ class ontoportal::nginx::cloudflare_proxy (
   }
 
   if $block_non_cloudflare {
-    file { '/usr/local/bin/nginx-cloudflare_real_ip.sh':
+    file { '/usr/local/bin/nginx-cloudflare_proxy_restrict.sh':
       ensure  => $ensure,
       owner   => 'root',
       group   => 'root',
