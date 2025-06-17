@@ -11,7 +11,7 @@ Description=ncbo_cron service
 After=network.target
 
 [Service]
-Umask=0007
+UMask=0007
 Type=forking
 ExecStart=<%= $app_dir %>/bin/ncbo_cron --daemon -P /run/ncbo_cron/ncbo_cron.pid
 ExecStop=/usr/bin/kill -QUIT $MAINPID
