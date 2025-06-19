@@ -23,7 +23,6 @@ class ontoportal::ncbo_cron (
   Stdlib::Absolutepath $data_dir = '/srv/ontoportal',
   Stdlib::Absolutepath $repo_dir = "${data_dir}/repository",
   Array[Stdlib::Absolutepath] $read_write_paths = [ $repo_dir, "${data_dir}/mgrep", "${data_dir}/reports", "${data_dir}/web_analytics"],
-  Array[Stdlib::Absolutepath] $read_only_paths = ['/opt'],
   String $ruby_version           = '3.1.6',
   Integer $logrotate_days        = 356,
   Boolean $manage_java           = true,
@@ -104,7 +103,6 @@ class ontoportal::ncbo_cron (
         user             => $service_account,
         group            => $group,
         read_write_paths => $log_dir + $read_write_paths,
-        read_only_paths  => $read_only_paths,
         }),
   }
   ~> service { 'ncbo_cron':
