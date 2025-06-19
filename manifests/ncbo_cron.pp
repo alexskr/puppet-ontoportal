@@ -22,6 +22,8 @@ class ontoportal::ncbo_cron (
   $service                       = 'running',
   Stdlib::Absolutepath $data_dir = '/srv/ontoportal',
   Stdlib::Absolutepath $repo_dir = "${data_dir}/repository",
+  Array[Stdlib::Absolutepath] $read_write_paths = [ $repo_dir, "${data_dir}/mgrep", "${data_dir}/reports", "${data_dir}/web_analytics"],
+  Array[Stdlib::Absolutepath] $read_only_paths = ['/opt'],
   String $ruby_version           = '3.1.6',
   Integer $logrotate_days        = 356,
   Boolean $manage_java           = true,
@@ -91,8 +93,6 @@ class ontoportal::ncbo_cron (
       package => $java_version,
     }
   }
-  $read_write_paths = [ $log_dir, $repo_dir, "${data_dir}/mgrep", "${data_dir}/reports" ]
-  $read_only_paths = ['/opt']
   systemd::tmpfile { 'ncbo_cron.conf':
     ensure  => present,
     content => "d /run/ncbo_cron 0755 $service_account $group"
@@ -100,10 +100,10 @@ class ontoportal::ncbo_cron (
 
   systemd::unit_file { 'ncbo_cron.service':
     content => epp('ontoportal/ncbo_cron.service.epp', {
-        app_dir => $app_dir,
-        user    => $service_account,
-        group   => $group,
-        read_write_paths => $read_write_paths,
+        app_dir          => $app_dir,
+        user             => $service_account,
+        group            => $group,
+        read_write_paths => $log_dir + $read_write_paths,
         read_only_paths  => $read_only_paths,
         }),
   }

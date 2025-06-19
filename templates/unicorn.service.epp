@@ -3,7 +3,6 @@
   String $group,
   String $environment,
   Array[Stdlib::Absolutepath] $read_write_paths,
-  Array[Stdlib::Absolutepath] $read_only_paths,
   Stdlib::Absolutepath $app_dir,
   Stdlib::Absolutepath $bundle_bin,
 | -%>
@@ -33,7 +32,6 @@ ProtectControlGroups=yes
 # OntologiesLinkedData sets SGID bit on repo dir
 RestrictSUIDSGID=no
 ReadWritePaths=<%= $read_write_paths.join(' ') %>
-ReadOnlyPaths=<%= $read_only_paths.join(' ') %>
 RuntimeDirectory=unicorn
 
 PIDFile=/run/unicorn/unicorn.pid
