@@ -27,7 +27,7 @@ class ontoportal::nginx::proxy_api (
   $slices_fqdn = $slices.map |$item| { "${item}.${domain}" }
 
   # Configure ACME challenge location if using webroot plugin
-  if $letsencrypt_plugin == 'webroot' {
+  if $letsencrypt_plugin == 'webroot' and $manage_letsencrypt {
     nginx::resource::location { 'letsencrypt-acme-challenge-api':
       ensure              => present,
       server              => 'ontologies_api',
@@ -38,7 +38,7 @@ class ontoportal::nginx::proxy_api (
       location_cfg_append => {
         'default_type' => 'text/plain',
       },
-      before             => Ontoportal::Nginx::Letsencrypt[$domain],
+      before              => Ontoportal::Nginx::Letsencrypt[$domain],
     }
   }
 
@@ -51,8 +51,9 @@ class ontoportal::nginx::proxy_api (
     }
   }
 
-  $_ssl_cert = ontoportal::tls_path($domain, 'cert', $ssl_cert)
-  $_ssl_key  = ontoportal::tls_path($domain, 'key',  $ssl_key)
+  $_tls_paths = ontoportal::tls_paths($domain, $ssl_cert, $ssl_key)
+  $_ssl_cert = $_tls_paths['cert']
+  $_ssl_key  = $_tls_paths['key']
 
   $_enable_https_redirect = $enable_https and $enable_https_redirect
 

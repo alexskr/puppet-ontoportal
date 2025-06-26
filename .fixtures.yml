@@ -3,5 +3,16 @@
 ---
 fixtures:
   forge_modules:
-     stdlib: "puppetlabs/stdlib"
-     cron: "puppet/cron"
+    stdlib: "puppetlabs/stdlib"
+    cron: "puppet/cron"
+    nginx: "puppet/nginx"
+    apt: "puppetlabs/apt"
+    letsencrypt: "puppet/letsencrypt"
+    logrotate: "puppet/logrotate"
+    firewall: "puppetlabs/firewall"
+    firewall_multi: "alexharvey/firewall_multi"
+    systemd: "puppet/systemd"
+    concat: "puppetlabs/concat"
+    inifile: "puppetlabs/inifile"
+    epel: "puppet/epel"
+
