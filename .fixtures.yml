@@ -15,4 +15,5 @@ fixtures:
     concat: "puppetlabs/concat"
     inifile: "puppetlabs/inifile"
     epel: "puppet/epel"
-
+    java: "puppetlabs/java"
+    rbenv: "jdowning/rbenv"

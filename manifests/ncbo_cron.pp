@@ -47,7 +47,7 @@ class ontoportal::ncbo_cron (
 
   if $manage_ruby and !defined(Ontoportal::Rbenv[$ruby_version]) {
     ontoportal::rbenv { $ruby_version:
-      global =>  true,
+      global => true,
     }
   }
 
@@ -97,12 +97,14 @@ class ontoportal::ncbo_cron (
     content => "d /run/ncbo_cron 0755 $service_account $group"
   }
 
+  $_read_write_paths = $read_write_paths + [$log_dir]
+
   systemd::unit_file { 'ncbo_cron.service':
     content => epp('ontoportal/ncbo_cron.service.epp', {
         app_dir          => $app_dir,
         user             => $service_account,
         group            => $group,
-        read_write_paths => $log_dir + $read_write_paths,
+        read_write_paths => $_read_write_paths,
         }),
   }
   ~> service { 'ncbo_cron':
