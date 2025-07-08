@@ -1,6 +1,7 @@
 <% |
   String $triple_store,
   Boolean $include_api,
+  Boolean $include_cron,
   Boolean $include_ui,
   String $app_root_dir,
   String $log_dir,
@@ -45,9 +46,9 @@ require_root() {
   $api_services = [
     'mgrep.service',
     'solr.service',
-    'ncbo_cron.service',
     'unicorn.service'
   ]
+  $cron_services = [ 'ncbo_cron.service' ]
   $ui_services = [
     'ui.service',
     'memcached.service'
@@ -57,6 +58,7 @@ require_root() {
   $nginx_services = ['nginx.service']
 
   $api_part = $include_api ? { true => $api_services, false => [] }
+  $cron_part = $include_cron ? { true => $cron_services, false => [] }
   $ui_part = $include_ui ? { true => $ui_services, false => [] }
   $nginx_part = ($include_api or $include_ui) ? { true => $nginx_services, false => [] }
 
@@ -274,6 +276,7 @@ reset_permissions() {
 
   INCLUDE_UI=<%= $include_ui ? { true => 'true', false => 'false' } %>
   INCLUDE_API=<%= $include_api ? { true => 'true', false => 'false' } %>
+  INCLUDE_CRON=<%= $include_cron ? { true => 'true', false => 'false' } %>
 
   set_perms "$APP_ROOT_DIR" "$ADMIN_USER" "$SHARED_GROUP" 755
   set_perms "$LOG_DIR" "$ADMIN_USER" "$SHARED_GROUP" 755
@@ -282,19 +285,28 @@ reset_permissions() {
   set_perms "$APP_ROOT_DIR/virtual_appliance/appliance_config/bioportal_web_ui/config/credentials" "$ADMIN_USER" "$UI_USER" 750 true 640 true
   set_perms "$APP_ROOT_DIR/.bundle" "$ADMIN_USER" "$ADMIN_USER" 755 true 644 true
 
-  if $INCLUDE_API; then
-    set_perms "$APP_ROOT_DIR/ontologies_api" "$ADMIN_USER" "$SHARED_GROUP" 750 true 640 true
+
+  if [[ "$INCLUDE_API" == "true" || "$INCLUDE_CRON" == "true" ]]; then
     set_perms "$DATA_DIR" "root" "root" 755
-    set_perms "$DATA_DIR/mgrep" "$BACKEND_USER" "$SHARED_GROUP" 755 true 664
     set_perms "$DATA_DIR/reports" "$BACKEND_USER" "$SHARED_GROUP" 755 true 664
-    set_perms "$DATA_DIR/repository" "$BACKEND_USER" "$SHARED_GROUP" 2755 true 664 false
-    set_perms "$DATA_DIR/agraph" "agraph" "agraph" 750 true 640
-    set_perms "$LOG_DIR/ontologies_api" "$BACKEND_USER" "$SHARED_GROUP" 750 true 640
+    set_perms "$DATA_DIR/repository" "$BACKEND_USER" "$SHARED_GROUP" 2775 true 664 false
+  fi
+
+  if [[ "$INCLUDE_CRON" == "true" ]]; then
+    set_perms "$DATA_DIR/mgrep" "$BACKEND_USER" "$SHARED_GROUP" 755 true 664
+    set_perms "$DATA_DIR/web_analytics" "$BACKEND_USER" "$SHARED_GROUP" 775 true 664 false
     set_perms "$APP_ROOT_DIR/ncbo_cron" "$ADMIN_USER" "$SHARED_GROUP" 750 true 640 true
     set_perms "$LOG_DIR/ncbo_cron" "$BACKEND_USER" "$SHARED_GROUP" 770 true 660
   fi
 
-  if $INCLUDE_UI; then
+  if [[ "$INCLUDE_API" == "true" ]]; then
+    set_perms "$APP_ROOT_DIR/ontologies_api" "$ADMIN_USER" "$SHARED_GROUP" 750 true 640 true
+    set_perms "$LOG_DIR/ontologies_api" "$BACKEND_USER" "$SHARED_GROUP" 750 true 640
+    # FIXME agraph needs to be moved elsewhere
+    set_perms "$DATA_DIR/agraph" "agraph" "agraph" 750 true 640
+  fi
+
+  if [[ "$INCLUDE_UI" == "true" ]]; then
     set_perms "$APP_ROOT_DIR/bioportal_web_ui" "$ADMIN_USER" "$UI_USER" 755
     set_perms "$APP_ROOT_DIR/bioportal_web_ui/releases" "$ADMIN_USER" "$UI_USER" 755 true 644 true
     set_perms "$APP_ROOT_DIR/bioportal_web_ui/shared" "$ADMIN_USER" "$UI_USER" 755 true 644
@@ -347,8 +359,8 @@ case "${1:-}" in
     exit 0
     ;;
   *)
-    echo "Usage: sudo $0 {start|stop|restart|status [-v]|clear-cache|reset-perms [--try-run]|help}"
-    exit 1
+    echo "Usage: sudo $0 {start|stop|restart|status [-v]|clear-cache|reset-perms [--dry-run]|help}"
+   exit 1
     ;;
 esac
 

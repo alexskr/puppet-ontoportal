@@ -184,28 +184,19 @@ class ontoportal::appliance (
     }),
   }
 
-  # wrapper for managing services
-  file { '/usr/local/ontoportal/bin/opctl':
-    ensure  => file,
-    mode    => '0755',
-    owner   => 'root',
-    group   => 'root',
-    content => epp('ontoportal/usr/local/bin/opctl.epp', {
-        'triple_store' => $triple_store,
-        'include_api'  => $include_api,
-        'include_ui'   => $include_ui,
-        'app_root_dir' => $app_root_dir,
-        'log_dir'      => $log_root_dir,
-        'data_dir'     => $data_dir,
-        'admin_user'   => $admin_user,
-        'backend_user' => $backend_user,
-        'ui_user'      => $ui_user,
-        'shared_group' => $shared_group,
-    }),
-  }
-  -> file { '/usr/local/bin/opctl':
-    ensure => simlink,
-    target => '/usr/local/ontoportal/bin/opctl',
+  # Include the opctl service management class
+  class { 'ontoportal::appliance::opctl':
+    triple_store => $triple_store,
+    include_api  => $include_api,
+    include_cron => $include_api,
+    include_ui   => $include_ui,
+    app_root_dir => $app_root_dir,
+    log_dir      => $log_root_dir,
+    data_dir     => $data_dir,
+    admin_user   => $admin_user,
+    backend_user => $backend_user,
+    ui_user      => $ui_user,
+    shared_group => $shared_group,
   }
 
   $va_path = "${app_root_dir}/virtual_appliance"
