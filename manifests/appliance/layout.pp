@@ -38,6 +38,7 @@ class ontoportal::appliance::layout (
       { path => "${data_dir}/mgrep",         owner => $backend_user, group => $shared_group, mode => '0750' },
       { path => "${data_dir}/mgrep/dictionary", owner => $backend_user, group => $shared_group, mode => '2770' },
       { path => "${data_dir}/reports",       owner => $backend_user, group => $shared_group, mode => '2770' },
+      { path => "${data_dir}/web_analytics", owner => $backend_user, group => $shared_group, mode => '2770' },
       # { path => "${app_root_dir}/ontologies_api", owner => $admin_user, group => $shared_group, mode => '0750' },
       # { path => "${app_root_dir}/ontologies_api/shared", owner => $admin_user, group => $admin_user, mode => '0755' },
       # { path => "${log_root_dir}/ontologies_api", owner => $backend_user, group => $shared_group, mode => '0755' },
