@@ -122,6 +122,6 @@ class ontoportal::profile::ontologies_api (
     missingok    => true,
     su           => true,
     su_user      => $service_account,
-    su_group     => $service_account,
+    su_group     => $data_group,
   }
 }
