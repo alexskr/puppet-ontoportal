@@ -9,7 +9,7 @@
 #
 
 class ontoportal::agraph(
-  String $version             = '8.3.1',
+  String $version             = '8.4.1',
   String $package_name        = "agraph-${version}-linuxamd64.64.tar.gz",
   Stdlib::HTTPUrl $source_url = "https://franz.com/ftp/pri/acl/ag/ag${version}/linuxamd64.64/${package_name}",
   Stdlib::Port $port          = 10035,
