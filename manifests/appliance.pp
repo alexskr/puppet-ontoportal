@@ -64,7 +64,7 @@ class ontoportal::appliance (
   Stdlib::Absolutepath $log_root_dir = '/var/log/ontoportal',
 
   # Application settings
-  String $appliance_version    = '4.0',
+  String $appliance_version    = '4.1',
   Stdlib::Port $api_port       = 8080,
   Stdlib::Port $api_port_https = 8443,
   Boolean $enable_https        = true,
