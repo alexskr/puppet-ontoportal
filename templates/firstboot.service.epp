@@ -6,11 +6,12 @@
 
 [Unit]
 Description=Initial Ontoportal Appliance reconfiguration which runs only on first boot.
-After=network-online.target multi-user.target
 Wants=network-online.target
+After=network-online.target multi-user.target cloud-final.service
 ConditionPathExists=<%= $firstboot_lockfile %>
 
 [Service]
+Environment="PATH=/usr/local/ontoportal/bin/:/opt/puppetlabs/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin"
 Type=oneshot
 RemainAfterExit=yes
 ExecStartPre=/usr/bin/sleep 5
