@@ -20,7 +20,6 @@ class ontoportal::appliance::ui (
   String $memcached_max_memory = '512',
 
   Integer $logrotate_ui = 7,
-  Integer $logrotate_nginx = 14,
 ) {
   if $manage_firewall {
     include ontoportal::firewall::http
@@ -42,7 +41,6 @@ class ontoportal::appliance::ui (
   class { 'ontoportal::nginx::proxy_ui':
     enable_https       => $enable_https,
     manage_letsencrypt => $manage_letsencrypt,
-    logrotate_nginx    => $logrotate_nginx,
     app_dir            => "${app_root_dir}/bioportal_web_ui",
     domain             => $ui_domain_name,
     slices             => [],

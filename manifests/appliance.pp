@@ -81,7 +81,6 @@ class ontoportal::appliance (
 
   # Log rotate/retention
   Integer $logrotate_ui = 14,
-  Integer $logrotate_nginx = 14,
 
 ) {
   Class['ontoportal::appliance::system']
@@ -148,7 +147,6 @@ class ontoportal::appliance (
       manage_letsencrypt => $manage_letsencrypt,
       enable_https       => $enable_https,
       logrotate_ui       => $logrotate_ui,
-      logrotate_nginx    => $logrotate_nginx,
     }
     Class['ontoportal::appliance::layout'] ->  Class['ontoportal::appliance::ui']
   }
