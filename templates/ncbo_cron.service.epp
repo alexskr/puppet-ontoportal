@@ -30,6 +30,7 @@ ProtectControlGroups=yes
 # OntologiesLinkedData sets SGID bit on repo dir
 RestrictSUIDSGID=no
 ReadWritePaths=<%= $read_write_paths.join(' ') %>
+RuntimeDirectory=ncbo_cron
 PIDFile=/run/ncbo_cron/ncbo_cron.pid
 TimeoutStopSec=90
 WorkingDirectory=<%= $app_dir %>
