@@ -7,7 +7,8 @@
 
 [Unit]
 Description=ncbo_cron service
-After=network.target
+Wants=network-online.target remote-fs.target
+After=network-online.target remote-fs.target
 
 [Service]
 UMask=0007

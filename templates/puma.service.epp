@@ -15,7 +15,8 @@
 
 [Unit]
 Description=Puma HTTP Server for <%= $name %>
-After=network.target
+Wants=network-online.target
+After=network-online.target
 # prevent infinite restarts if app is misconfigured
 StartLimitIntervalSec=10
 StartLimitBurst=5

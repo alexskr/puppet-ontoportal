@@ -9,7 +9,8 @@
 
 [Unit]
 Description=Unicorn server
-After=network.target
+Wants=network-online.target remote-fs.target
+After=network-online.target remote-fs.target
 
 [Service]
 UMask=0007
