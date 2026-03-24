@@ -19,6 +19,7 @@ ExecReload=/usr/bin/kill -USR2 $MAINPID
 User=<%= $user %>
 Group=<%= $group %>
 PrivateTmp=yes
+LimitNOFILE=65535
 ProtectSystem=strict
 ProtectHome=yes
 NoNewPrivileges=yes
