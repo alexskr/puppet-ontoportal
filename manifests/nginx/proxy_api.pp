@@ -74,6 +74,6 @@ class ontoportal::nginx::proxy_api (
     ssl_redirect     => $_enable_https_redirect,
     ssl_cert         => $_ssl_cert,
     ssl_key          => $_ssl_key,
-    proxy_set_header => ['X-Forwarded-For $proxy_add_x_forwarded_for', 'Host $http_host', 'X-Real-IP $remote_addr'],
+    proxy_set_header => ['X-Forwarded-For $proxy_add_x_forwarded_for', 'Host $http_host', 'X-Forwarded-Proto $scheme', 'X-Real-IP $remote_addr'],
   }
 }
