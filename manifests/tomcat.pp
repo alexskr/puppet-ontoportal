@@ -2,7 +2,7 @@
 # a wrapper class for pupppetlabs/tomcat module.
 # installs tomcat9 from source
 class ontoportal::tomcat(
-  String $version                     = '9.0.104',
+  String $version                     = '9.0.113',
   Stdlib::Port $port                  = 8080,
   Stdlib::HTTPUrl $source_url = "https://archive.apache.org/dist/tomcat/tomcat-9/v${version}/bin/apache-tomcat-${version}.tar.gz",
   Boolean $webadmin                   = false,
@@ -10,6 +10,9 @@ class ontoportal::tomcat(
   Boolean $manage_newrelic            = false,
   Optional[String] $java_opts_xmx     = undef,
   Integer $logrotate_days             = 14,
+  Boolean $manage_java                = true,
+  String $java_package                = 'openjdk-17-jre-headless',
+  Stdlib::Absolutepath $java_home     = "/usr/lib/jvm/java-17-openjdk-${facts['os']['architecture']}",
   Optional[String] $admin_user        = undef,
   Optional[String] $admin_user_passwd = undef,
   $catalina_base                      = '/srv/tomcat',
@@ -56,17 +59,26 @@ class ontoportal::tomcat(
     Type=forking
     User=tomcat
     Group=tomcat
-    Environment=CATALINA_PID=${catalina_home}/temp/tomcat.pid
-    Environment=CATALINA_HOME=${$catalina_home}
+    Environment=JAVA_HOME=${java_home}
+    Environment=CATALINA_PID=${catalina_base}/temp/tomcat.pid
+    Environment=CATALINA_HOME=${catalina_home}
     Environment=CATALINA_BASE=${catalina_base}
-    User=tomcat
+    PIDFile=${catalina_base}/temp/tomcat.pid
+    SuccessExitStatus=143
 
     ExecStart=${catalina_home}/bin/startup.sh
     ExecStop=${catalina_home}/bin/shutdown.sh
+    RestartSec=10
+    Restart=on-failure
 
     [Install]
     WantedBy=multi-user.target
     | EOT
+
+  if $manage_java {
+    stdlib::ensure_packages([$java_package])
+    Package[$java_package] -> Service['tomcat']
+  }
 
   class { 'tomcat': }
   tomcat::install { $catalina_home:

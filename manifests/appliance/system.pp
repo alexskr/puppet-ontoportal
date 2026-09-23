@@ -4,6 +4,8 @@ class ontoportal::appliance::system (
   Boolean $manage_selinux = false,
   String  $appliance_version,
   String $java_pkg_name = 'openjdk-11-jre-headless',
+  String $java_alternative = "java-1.11.0-openjdk-${facts['os']['architecture']}",
+  String $java17_pkg_name = 'openjdk-17-jre-headless', # solr and tomcat
 
 ) {
   if $manage_firewall {
@@ -86,9 +88,15 @@ class ontoportal::appliance::system (
   stdlib::ensure_packages( $packages )
   stdlib::ensure_packages( $packages_purge, { ensure => 'absent' })
 
+  # api/ncbo_cron stay on the default JRE (11, as in production); without the
+  # alternative pinned, installing 17 would make it the default
   class { 'java':
-    package => $java_pkg_name,
+    package               => $java_pkg_name,
+    java_alternative      => $java_alternative,
+    java_alternative_path => "/usr/lib/jvm/java-11-openjdk-${facts['os']['architecture']}/bin/java",
   }
+  stdlib::ensure_packages([$java17_pkg_name])
+  Package[$java17_pkg_name] -> Class['java::config']
 
   class { 'systemd':
     manage_resolved  => true,
