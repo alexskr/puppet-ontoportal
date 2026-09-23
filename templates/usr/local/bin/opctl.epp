@@ -176,7 +176,7 @@ status_services() {
   if $VERBOSE; then
     echo ""
     echo "---- SOLR status ----"
-    curl -s "http://localhost:8983/solr/admin/cores?action=STATUS"
+    curl -s "http://localhost:8983/solr/admin/collections?action=CLUSTERSTATUS"
     for redis_service in "${REDIS_SERVICES[@]}"; do
       check_redis_instance "$redis_service"
     done

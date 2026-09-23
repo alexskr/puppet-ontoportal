@@ -82,8 +82,6 @@ class ontoportal::appliance::api (
 
   class { 'ontoportal::solr':
     manage_java     => false,
-    deployeruser    => $admin_user,
-    deployergroup   => $admin_user,
     manage_firewall => false,
     solr_heap       => '512M',
     var_dir         => "${data_dir}/solr",
