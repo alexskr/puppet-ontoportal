@@ -45,7 +45,7 @@ describe 'ontoportal::ncbo_cron' do
         end
       end
 
-      it { is_expected.to contain_ontoportal__rbenv('3.1.6').with(global: true) }
+      it { is_expected.to contain_ontoportal__rbenv('3.2.10').with(global: true) }
 
       it 'creates app directory with proper ownership and dependencies' do
         is_expected.to contain_file('/opt/ontoportal/ncbo_cron')
