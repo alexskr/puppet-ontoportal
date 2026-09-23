@@ -9,7 +9,7 @@
 #
 
 class ontoportal::agraph(
-  String $version             = '8.4.1',
+  String $version             = '8.5.0',
   String $package_name        = "agraph-${version}-linuxamd64.64.tar.gz",
   Stdlib::HTTPUrl $source_url = "https://franz.com/ftp/pri/acl/ag/ag${version}/linuxamd64.64/${package_name}",
   Stdlib::Port $port          = 10035,
@@ -23,6 +23,7 @@ class ontoportal::agraph(
   Stdlib::Absolutepath $config_path = "/etc/agraph/agraph.cfg",
   Optional[Array] $fwsrc = undef,
   Optional[Array] $mm_nodes = [], #multi master replication nodes
+  Integer $logrotate_keep = 30,
 ) {
 
   if ($facts['os']['family'] != 'Debian') {
@@ -148,4 +149,18 @@ class ontoportal::agraph(
     content => '(#x3b74c0e3a9d8517db3e3d3009f18580507438674 (:super) nil nil nil)\n'
   }
 
+  logrotate::rule { 'agraph':
+    path         => '/var/log/agraph/*.log',
+    rotate       => $logrotate_keep,
+    rotate_every => 'day',
+    copytruncate => true,
+    dateext      => true,
+    compress     => true,
+    missingok    => true,
+    ifempty      => false,
+    su           => true,
+    su_user      => 'agraph',
+    su_group     => 'agraph',
+    require      => File['/var/log/agraph'],
+  }
 }
