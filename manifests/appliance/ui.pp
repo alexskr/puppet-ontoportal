@@ -18,7 +18,7 @@ class ontoportal::appliance::ui (
   Boolean $manage_letsencrypt,
   Boolean $enable_https,
   Optional[Integer] $puma_workers   = undef,
-  String $memcached_max_memory = '512',
+  Variant[Integer[0], Pattern[/^1?\d?\d%$/]] $memcached_max_memory = 512,
 
   Integer $logrotate_ui = 7,
 ) {
