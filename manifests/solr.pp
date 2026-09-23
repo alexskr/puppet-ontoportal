@@ -67,6 +67,7 @@ class ontoportal::solr (
     java_home  => $java_home,
     java_mem   => "-Xms${_solr_heap} -Xmx${_solr_heap}",
     var_dir    => $var_dir,
+    solr_home  => "${var_dir}/data", # markt-solr's default comes from hiera, not this var_dir
     solr_opts  => ["-Dsolr.max.booleanClauses=${max_boolean_clauses}"] + $_newrelic_opts,
   }
 }
