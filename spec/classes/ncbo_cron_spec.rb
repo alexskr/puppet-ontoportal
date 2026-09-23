@@ -22,7 +22,7 @@ describe 'ontoportal::ncbo_cron' do
           log_dir: '/var/log/ontoportal/ncbo_cron',
           service: 'running',
           data_dir: '/srv/ontoportal',
-          ruby_version: '3.1.6',
+          ruby_version: '3.2.10',
           logrotate_days: 356,
           manage_java: true,
           manage_ruby: true,

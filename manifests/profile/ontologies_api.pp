@@ -4,7 +4,7 @@
 class ontoportal::profile::ontologies_api (
   Enum['staging', 'production', 'appliance', 'development'] $environment = 'staging',
   Boolean $manage_ruby            = true,
-  String $ruby_version            = '3.1.6',
+  String $ruby_version            = '3.2.10',
   String $admin_user              = 'op-admin',
   String $service_account         = 'op-backend',
   Boolean $manage_service_account = true,

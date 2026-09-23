@@ -11,6 +11,7 @@ class ontoportal::appliance::ui (
   String $admin_user,
   String $ui_user,
   String $ruby_version,
+  Boolean $ruby_global,
 
   String $group,
   Boolean $manage_firewall,
@@ -35,6 +36,7 @@ class ontoportal::appliance::ui (
     logrotate_ui    => $logrotate_ui,
     app_dir         => "${app_root_dir}/bioportal_web_ui",
     manage_ruby     => true,
+    ruby_global     => $ruby_global,
     puma_workers    => $puma_workers,
   }
 

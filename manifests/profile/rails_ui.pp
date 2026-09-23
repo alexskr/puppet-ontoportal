@@ -1,6 +1,6 @@
 class ontoportal::profile::rails_ui (
   Enum['staging', 'production', 'appliance', 'development'] $environment = 'staging',
-  String $ruby_version             = '3.1.6',
+  String $ruby_version             = '3.2.9',
   String $admin_user               = 'op-admin',
   String $group                    = 'op-admin',
   String $service_account          = 'op-ui',
@@ -12,6 +12,7 @@ class ontoportal::profile::rails_ui (
   String $domain                   = 'demo.ontoportal.org',
   Optional[Array[String]] $slices  = [], #used as SAN for letsencrypt
   Boolean $manage_ruby             = true,
+  Boolean $ruby_global             = true,
   Stdlib::Absolutepath $bundle_bin = '/usr/local/rbenv/shims/bundle',
   Array[Stdlib::Absolutepath] $read_only_paths = ["${app_dir}/current"],
   Array[Stdlib::Absolutepath] $read_write_paths = [$log_dir],
@@ -33,9 +34,9 @@ class ontoportal::profile::rails_ui (
 
   include ontoportal::yarn
 
-  if $manage_ruby {
+  if $manage_ruby and !defined(Ontoportal::Rbenv[$ruby_version]) {
     ontoportal::rbenv { $ruby_version:
-      global => true,
+      global => $ruby_global,
       # rubygems_version => '3.5.16',
       # bundler_version  => '2.5.16',
     }

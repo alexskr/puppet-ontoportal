@@ -23,7 +23,7 @@ class ontoportal::ncbo_cron (
   Stdlib::Absolutepath $data_dir = '/srv/ontoportal',
   Stdlib::Absolutepath $repo_dir = "${data_dir}/repository",
   Array[Stdlib::Absolutepath] $read_write_paths = [ $repo_dir, "${data_dir}/mgrep", "${data_dir}/reports", "${data_dir}/web_analytics"],
-  String $ruby_version           = '3.1.6',
+  String $ruby_version           = '3.2.10',
   Integer $logrotate_days        = 356,
   Boolean $manage_java           = true,
   Boolean $manage_ruby           = true,

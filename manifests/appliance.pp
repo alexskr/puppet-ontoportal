@@ -26,7 +26,7 @@
 # @param ui_domain_name The domain name to use for the UI component.
 # @param api_domain_name The domain name to use for the API component.
 # @param api_ruby_version The Ruby version to use for the API component.
-# @param ui_ruby_version The Ruby version to use for the UI component (defaults to API version).
+# @param ui_ruby_version The Ruby version to use for the UI component.
 # @param goo_cache_maxmemory Max memory allocated to the Goo cache layer.
 # @param http_cache_maxmemory Max memory allocated to the HTTP cache layer.
 # @param triple_store triple store backend to manage can be 4store, agraph or external.
@@ -72,8 +72,8 @@ class ontoportal::appliance (
   # Domain & Ruby versions
   String $ui_domain_name   = 'demo.ontoportal.org',
   String $api_domain_name  = 'data.demo.ontoportal.org',
-  String $ui_ruby_version  = '3.1.6',
-  String $api_ruby_version = $ui_ruby_version,
+  String $ui_ruby_version  = '3.2.9',
+  String $api_ruby_version = '3.2.10',
 
   # Memory tuning
   String $goo_cache_maxmemory  = '512M',
@@ -140,6 +140,7 @@ class ontoportal::appliance (
       app_root_dir       => $app_root_dir,
       log_dir            => $log_root_dir,
       ruby_version       => $ui_ruby_version,
+      ruby_global        => !$include_api, # the API ruby is global when both are installed
       admin_user         => $admin_user,
       group              => $ui_user,
       ui_user            => $ui_user,
