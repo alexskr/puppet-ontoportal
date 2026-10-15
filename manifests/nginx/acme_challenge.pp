@@ -18,7 +18,9 @@
 #
 # @param peers
 #   Other members of the load balanced pool. This node is dropped from the
-#   list by hostname, so the same list can be used on every member.
+#   list by hostname, so the same list can be used on every member. The peer
+#   upstream is shared by all servers on a node, so every instance on a node
+#   must be given the same list.
 #
 define ontoportal::nginx::acme_challenge (
   String[1] $server                = $name,
@@ -26,7 +28,6 @@ define ontoportal::nginx::acme_challenge (
   Array[Stdlib::Host] $peers       = [],
 ) {
   $_peers = $peers.filter |$peer| { $peer.split('\.')[0] != $facts['networking']['hostname'] }
-  $_fallback = "acme_peers_${server}"
 
   nginx::resource::location { "acme-challenge-${server}":
     ensure              => present,
@@ -37,7 +38,7 @@ define ontoportal::nginx::acme_challenge (
     index_files         => [],
     try_files           => empty($_peers) ? {
       true  => undef,
-      false => ['$uri', "@${_fallback}"],
+      false => ['$uri', '@acme_peers'],
     },
     location_cfg_append => {
       'default_type' => 'text/plain',
@@ -45,18 +46,18 @@ define ontoportal::nginx::acme_challenge (
   }
 
   unless empty($_peers) {
-    nginx::resource::upstream { $_fallback:
-      # member titles are global; key by upstream so several servers on one node can share peers
-      members => $_peers.reduce({}) |$memo, $peer| { $memo + { "${_fallback}_${peer}" => { 'server' => $peer, 'port' => 80 } } },
-    }
+    ensure_resource('nginx::resource::upstream', 'acme_peers', {
+      'members' => $_peers.reduce({}) |$memo, $peer| { $memo + { $peer => { 'server' => $peer, 'port' => 80 } } },
+    })
 
-    nginx::resource::location { "@${_fallback}":
+    nginx::resource::location { "acme-peers-${server}":
       ensure                => present,
       server                => $server,
+      location              => '@acme_peers',
       ssl                   => false,
       index_files           => [],
       raw_prepend           => 'if ($http_x_acme_forwarded) { return 404; }',
-      proxy                 => "http://${_fallback}",
+      proxy                 => 'http://acme_peers',
       proxy_set_header      => ['Host $host', 'X-Acme-Forwarded 1'],
       proxy_next_upstream   => 'error timeout http_404',
       # a dead peer must not stall validation, the CA gives up long before 90s
