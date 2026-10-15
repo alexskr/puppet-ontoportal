@@ -50,14 +50,18 @@ define ontoportal::nginx::acme_challenge (
     }
 
     nginx::resource::location { "@${_fallback}":
-      ensure              => present,
-      server              => $server,
-      ssl                 => false,
-      index_files         => [],
-      raw_prepend         => 'if ($http_x_acme_forwarded) { return 404; }',
-      proxy               => "http://${_fallback}",
-      proxy_set_header    => ['Host $host', 'X-Acme-Forwarded 1'],
-      proxy_next_upstream => 'error timeout http_404',
+      ensure                => present,
+      server                => $server,
+      ssl                   => false,
+      index_files           => [],
+      raw_prepend           => 'if ($http_x_acme_forwarded) { return 404; }',
+      proxy                 => "http://${_fallback}",
+      proxy_set_header      => ['Host $host', 'X-Acme-Forwarded 1'],
+      proxy_next_upstream   => 'error timeout http_404',
+      # a dead peer must not stall validation, the CA gives up long before 90s
+      proxy_connect_timeout => '3s',
+      proxy_read_timeout    => '5s',
+      proxy_send_timeout    => '5s',
     }
   }
 }
