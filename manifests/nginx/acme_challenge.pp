@@ -46,7 +46,8 @@ define ontoportal::nginx::acme_challenge (
 
   unless empty($_peers) {
     nginx::resource::upstream { $_fallback:
-      members => $_peers.reduce({}) |$memo, $peer| { $memo + { $peer => { 'server' => $peer, 'port' => 80 } } },
+      # member titles are global; key by upstream so several servers on one node can share peers
+      members => $_peers.reduce({}) |$memo, $peer| { $memo + { "${_fallback}_${peer}" => { 'server' => $peer, 'port' => 80 } } },
     }
 
     nginx::resource::location { "@${_fallback}":
