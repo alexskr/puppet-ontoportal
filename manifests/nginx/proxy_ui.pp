@@ -12,6 +12,7 @@ class ontoportal::nginx::proxy_ui (
   Boolean $manage_firewall         = false,
   Enum['webroot', 'nginx'] $letsencrypt_plugin = 'nginx',
   Optional[Array[Stdlib::Absolutepath]] $letsencrypt_webroot_paths = ['/var/lib/letsencrypt/webroot'],
+  Array[Stdlib::Host] $letsencrypt_peers = [], # other load balanced nodes, see ontoportal::nginx::acme_challenge
 ) {
   contain ontoportal::nginx
 
@@ -25,16 +26,9 @@ class ontoportal::nginx::proxy_ui (
 
   # Configure ACME challenge location if using webroot plugin
   if $letsencrypt_plugin == 'webroot' {
-    nginx::resource::location { 'letsencrypt-acme-challenge-ui':
-      ensure              => present,
-      server              => 'ontoportal_web_ui',
-      ssl                 => false,  # HTTP only
-      location            => '^~ /.well-known/acme-challenge/',
-      www_root            => $letsencrypt_webroot_paths[0],
-      index_files         => [],
-      location_cfg_append => {
-        'default_type' => 'text/plain',
-      },
+    ontoportal::nginx::acme_challenge { 'ontoportal_web_ui':
+      webroot => $letsencrypt_webroot_paths[0],
+      peers   => $letsencrypt_peers,
     }
   }
 
