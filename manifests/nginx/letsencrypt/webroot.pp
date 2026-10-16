@@ -10,7 +10,10 @@
 class ontoportal::nginx::letsencrypt::webroot (
   Stdlib::Absolutepath $webroot_path = '/var/lib/letsencrypt/webroot',
 ) {
-  file { $webroot_path:
+  # certbot only creates /var/lib/letsencrypt on its first run, after Puppet needs the webroot
+  ensure_resource('file', dirname($webroot_path), { 'ensure' => 'directory' })
+
+  file { [$webroot_path, "${webroot_path}/.well-known", "${webroot_path}/.well-known/acme-challenge"]:
     ensure => directory,
     owner  => 'root',
     group  => 'root',
