@@ -22,7 +22,7 @@ describe 'ontoportal::ncbo_cron' do
           log_dir: '/var/log/ontoportal/ncbo_cron',
           service: 'running',
           data_dir: '/srv/ontoportal',
-          ruby_version: '3.1.6',
+          ruby_version: '3.2.11',
           logrotate_days: 356,
           manage_java: true,
           manage_ruby: true,
@@ -45,7 +45,7 @@ describe 'ontoportal::ncbo_cron' do
         end
       end
 
-      it { is_expected.to contain_ontoportal__rbenv('3.1.6').with(global: true) }
+      it { is_expected.to contain_ontoportal__rbenv('3.2.11').with(global: true) }
 
       it 'creates app directory with proper ownership and dependencies' do
         is_expected.to contain_file('/opt/ontoportal/ncbo_cron')

@@ -22,8 +22,8 @@
 #ontoportal::appliance::ui_domain_name: "ui.example.org"
 #ontoportal::appliance::api_domain_name: "api.example.org"
 
-#ontoportal::appliance::ui_ruby_version: "3.1.6"
-#ontoportal::appliance::api_ruby_version: "3.1.6"
+#ontoportal::appliance::ui_ruby_version: "3.2.11"
+#ontoportal::appliance::api_ruby_version: "3.2.11"
 #ontoportal::appliance::appliance_version: "4.0"
 
 #ontoportal::appliance::goo_cache_maxmemory: "512M"

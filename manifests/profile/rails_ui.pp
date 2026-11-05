@@ -1,6 +1,6 @@
 class ontoportal::profile::rails_ui (
   Enum['staging', 'production', 'appliance', 'development'] $environment = 'staging',
-  String $ruby_version             = '3.1.6',
+  String $ruby_version             = '3.2.11',
   String $admin_user               = 'op-admin',
   String $group                    = 'op-admin',
   String $service_account          = 'op-ui',

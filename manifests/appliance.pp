@@ -72,7 +72,7 @@ class ontoportal::appliance (
   # Domain & Ruby versions
   String $ui_domain_name   = 'demo.ontoportal.org',
   String $api_domain_name  = 'data.demo.ontoportal.org',
-  String $ui_ruby_version  = '3.1.6',
+  String $ui_ruby_version  = '3.2.11',
   String $api_ruby_version = $ui_ruby_version,
 
   # Memory tuning
